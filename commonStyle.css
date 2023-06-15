@@ -1,15 +1,19 @@
-th, td {
-	padding: 2px;
+th,
+td {
+  padding: 2px;
 }
+
 body {
-	font-family: verdana; 
-	line-height: 1.5;
-	font-size: 16px;
-	padding: 20px 30px;
+  font-family: verdana;
+  line-height: 1.5;
+  font-size: 16px;
+  padding: 20px 30px;
 }
+
 .title {
-	font-size: 75px;
+  font-size: 75px;
 }
+
 /*
 .title {
 	font-weight: normal;
@@ -17,22 +21,23 @@ body {
 }
 */
 .subtitle {
-	font-weight: normal;
-	font-size: 25px;
+  font-weight: normal;
+  font-size: 25px;
   padding-left: 100px;
   font-style: italic;
 }
 
 .button:hover {
-  background-color: #777777; 
+  background-color: #777777;
   color: white;
 }
+
 .button {
   background-color: #555555;
   border: none;
   color: white;
   padding: 8px 8px;
-  margin: 5px 0px 5px 0px;  
+  margin: 5px 0px 5px 0px;
   border-radius: 5px;
   text-align: center;
   text-decoration: none;
