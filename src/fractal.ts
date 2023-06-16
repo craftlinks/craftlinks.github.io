@@ -1,8 +1,8 @@
 // Constants
 const SCALE = 0.0015;
 const MAX_ITERS = 250;
-const  juliaX = -0.62580000000000;
-const  juliaY = 0.40250000000000;
+const juliaX = -0.62580000000000;
+const juliaY = 0.40250000000000;
 
 
 
@@ -16,7 +16,7 @@ if (!canvas) {
 }
 
 // get the canvas context
-let ctx: CanvasRenderingContext2D | null = canvas.getContext("2d", {willReadFrequently: true});
+let ctx: CanvasRenderingContext2D | null = canvas.getContext("2d", { willReadFrequently: true });
 if (!ctx) {
     alert("Error: failed to get canvas context!");
     throw new Error("Error: failed to get canvas context!");
@@ -57,26 +57,23 @@ function drawFractal() {
     ctx!.clearRect(0, 0, canvas!.width, canvas!.height);
     ctx!.fillStyle = "#FF0000";
 
-    let imageData: ImageData = ctx!.getImageData(0, 0, canvas!.width, canvas!.height, );
+    let imageData: ImageData = ctx!.getImageData(0, 0, canvas!.width, canvas!.height,);
     let y = 0 - canvas!.height / 2 * SCALE;
 
     let p = 0;
-    for (let i = canvas!.height -1; i >=0 ; i--) {
+    for (let i = canvas!.height - 1; i >= 0; i--) {
         let x = 0 - canvas!.width / 2.0 * SCALE;
         for (let j = 0; j < canvas!.width; j++) {
             const iters = getNumIters(x, y, juliaX, juliaY, MAX_ITERS);
-            // const index = (i * canvas!.width + j) * 4;
             if (iters < MAX_ITERS) {
-                imageData.data[p++] = 0;
-                imageData.data[p++] = 0;
-                imageData.data[p++] = 0;
-                //imageData.data[p++] = 255;
+                imageData.data[p++] = 256;
+                imageData.data[p++] = 256;
+                imageData.data[p++] = 256;
             }
             else {
-                imageData.data[p++] = 255;
-                imageData.data[p++] = 192;
                 imageData.data[p++] = 0;
-                // imageData.data[p++] = 255;
+                imageData.data[p++] = 0;
+                imageData.data[p++] = 0;
             }
             imageData.data[p++] = 255;
             x += SCALE;
@@ -85,13 +82,9 @@ function drawFractal() {
     }
 
     ctx!.putImageData(imageData, 0, 0);
-
-
-
 }
 
 function update() {
-
 
     // draw the fractal
     drawFractal();
