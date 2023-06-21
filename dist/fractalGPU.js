@@ -1,9 +1,9 @@
 import { createShader, render } from "./lib.js";
 /////////////////////////////////////////////////////////
 // GPU and CPU Settings
-const xmin = -2.0;
-const xmax = 0.6;
-const ymin = -1.5;
+const xmin = -1.5;
+const xmax = 1.5;
+const ymin = -0.95;
 const ymax = 2.0;
 // Sizes in bytes
 const sizes = {
