@@ -15,6 +15,9 @@
 @group(1) @binding(3) 
   var<uniform> dxdy: vec2f;
 
+@group(1) @binding(4) 
+  var<uniform> mouse: vec2f;
+
 // Agent positions
 @group(2) @binding(0)  
   var<storage, read_write> positions : array<vec2f>;
@@ -68,8 +71,8 @@ fn reset(@builtin(global_invocation_id) id : vec3u) {
 fn simulate(@builtin(global_invocation_id) id : vec3u) {
   var y = xmin_ymin.y  + f32(id.x)/rez * dxdy.y;
   var x = xmin_ymin.x  + f32(id.x)%rez * dxdy.x;
-  var juliaX = juliaXMin + (time % 3000.0 * juliaStepSize * juliaXDiff) ;
-  var juliaY = juliaYMin + (time % 3000.0 * juliaStepSize * juliaYDiff) ;
+  var juliaX = juliaXMin + (mouse.x * juliaStepSize * juliaXDiff) ;
+  var juliaY = juliaYMin + (mouse.y * juliaStepSize * juliaYDiff) ;
 
   pixels[id.x] = mandelbrot(vec2(x, y), vec2(juliaX, juliaY));
 }

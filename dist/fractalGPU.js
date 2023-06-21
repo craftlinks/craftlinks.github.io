@@ -82,6 +82,11 @@ async function main() {
         usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
     });
     gpu.queue.writeBuffer(timeBuffer, 0, new Float32Array([uniforms.time]));
+    const mouseBuffer = gpu.createBuffer({
+        size: sizes.vec2,
+        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
+    });
+    gpu.queue.writeBuffer(mouseBuffer, 0, new Float32Array([0, 0]));
     const xMinYminBuffer = gpu.createBuffer({
         size: sizes.vec2,
         usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
@@ -98,6 +103,7 @@ async function main() {
             { visibility, binding: 1, buffer: { type: "uniform" } },
             { visibility, binding: 2, buffer: { type: "uniform" } },
             { visibility, binding: 3, buffer: { type: "uniform" } },
+            { visibility, binding: 4, buffer: { type: "uniform" } }
         ],
     });
     const uniformsBuffersBindGroup = gpu.createBindGroup({
@@ -107,6 +113,7 @@ async function main() {
             { binding: 1, resource: { buffer: timeBuffer } },
             { binding: 2, resource: { buffer: xMinYminBuffer } },
             { binding: 3, resource: { buffer: dxdyBuffer } },
+            { binding: 4, resource: { buffer: mouseBuffer } }
         ],
     });
     // Other buffers
@@ -165,25 +172,35 @@ async function main() {
         gpu.queue.submit([encoder.finish()]);
     };
     reset();
+    const mouse = { x: 0, y: 0 };
+    const canvasRect = canvas.getBoundingClientRect();
+    document.addEventListener("mousemove", (e) => {
+        mouse.x = (e.clientX - canvasRect.left) / settings.scale;
+        mouse.y = (e.clientY - canvasRect.top) / settings.scale;
+    });
     /////////////////////////
     // RUN the sim compute function and render pixels
     const draw = () => {
-        // Compute sim function
-        const encoder = gpu.createCommandEncoder();
-        const pass = encoder.beginComputePass();
-        pass.setBindGroup(0, pixelBufferBindGroup);
-        pass.setBindGroup(1, uniformsBuffersBindGroup);
-        pass.setBindGroup(2, agentsBuffersBindGroup);
-        pass.setPipeline(fadePipeline);
-        pass.dispatchWorkgroups(settings.pixelWorkgroups);
-        pass.setPipeline(simulatePipeline);
-        pass.dispatchWorkgroups(settings.pixelWorkgroups);
-        pass.end();
-        // Render the pixels buffer to the canvas
-        render(gpu, uniforms.rez, pixelBuffer, format, context, encoder);
-        gpu.queue.submit([encoder.finish()]);
-        gpu.queue.writeBuffer(timeBuffer, 0, new Float32Array([uniforms.time++]));
-        setTimeout(draw, 10);
+        const run = () => {
+            gpu.queue.writeBuffer(mouseBuffer, 0, new Float32Array([mouse.x, mouse.y]));
+            gpu.queue.writeBuffer(timeBuffer, 0, new Float32Array([uniforms.time++]));
+            // Compute sim function
+            const encoder = gpu.createCommandEncoder();
+            const pass = encoder.beginComputePass();
+            pass.setBindGroup(0, pixelBufferBindGroup);
+            pass.setBindGroup(1, uniformsBuffersBindGroup);
+            pass.setBindGroup(2, agentsBuffersBindGroup);
+            pass.setPipeline(fadePipeline);
+            pass.dispatchWorkgroups(settings.pixelWorkgroups);
+            pass.setPipeline(simulatePipeline);
+            pass.dispatchWorkgroups(settings.pixelWorkgroups);
+            pass.end();
+            // Render the pixels buffer to the canvas
+            render(gpu, uniforms.rez, pixelBuffer, format, context, encoder);
+            gpu.queue.submit([encoder.finish()]);
+        };
+        run();
+        requestAnimationFrame(draw);
     };
     draw();
 }
