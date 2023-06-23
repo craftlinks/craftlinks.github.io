@@ -25,7 +25,7 @@ const load = async (path) => {
 // input: gpu device, file path
 // output: shader module
 // outputs any errors if module does not compile
-const createShader = async (gpu, file) => {
+const createShaderModule = async (gpu, file) => {
     const code = await load(file);
     if (!code) {
         throw new Error(`Could not load ${file}`);
@@ -167,4 +167,4 @@ const render = async (gpu, rez, buffer, format, context, encoder) => {
     rp(encoder);
 };
 // In Javascript, we pass objects between files using the export/import syntax
-export { createShader, render };
+export { createShaderModule, render };
