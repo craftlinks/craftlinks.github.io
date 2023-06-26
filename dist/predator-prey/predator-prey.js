@@ -9,7 +9,8 @@ const sizes = {
 };
 const uniforms = {
     rez: 2048,
-    predatorCount: 100,
+    maxPredatorCount: 100,
+    currentPredatorCount: 0,
     preyCount: 16000,
     time: 0,
 };
@@ -70,22 +71,28 @@ async function main() {
         usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
     });
     gpu.queue.writeBuffer(frameCountBuffer, 0, new Float32Array([uniforms.time]));
-    const predatorCountBuffer = gpu.createBuffer({
+    const currentPredatorCountBuffer = gpu.createBuffer({
         size: sizes.f32,
         usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
     });
-    gpu.queue.writeBuffer(predatorCountBuffer, 0, new Float32Array([uniforms.predatorCount]));
+    gpu.queue.writeBuffer(currentPredatorCountBuffer, 0, new Float32Array([uniforms.currentPredatorCount]));
     const preyCountBuffer = gpu.createBuffer({
         size: sizes.f32,
         usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
     });
     gpu.queue.writeBuffer(preyCountBuffer, 0, new Float32Array([uniforms.preyCount]));
+    const mouseBuffer = gpu.createBuffer({
+        size: sizes.vec2,
+        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
+    });
+    gpu.queue.writeBuffer(mouseBuffer, 0, new Float32Array([0, 0]));
     const uniformsLayout = gpu.createBindGroupLayout({
         entries: [
             { visibility, binding: 0, buffer: { type: "uniform" } },
             { visibility, binding: 1, buffer: { type: "uniform" } },
             { visibility, binding: 2, buffer: { type: "uniform" } },
             { visibility, binding: 3, buffer: { type: "uniform" } },
+            { visibility, binding: 4, buffer: { type: "uniform" } },
         ],
     });
     const uniformsBuffersBindGroup = gpu.createBindGroup({
@@ -93,17 +100,18 @@ async function main() {
         entries: [
             { binding: 0, resource: { buffer: rezBuffer } },
             { binding: 1, resource: { buffer: frameCountBuffer } },
-            { binding: 2, resource: { buffer: predatorCountBuffer } },
+            { binding: 2, resource: { buffer: currentPredatorCountBuffer } },
             { binding: 3, resource: { buffer: preyCountBuffer } },
+            { binding: 4, resource: { buffer: mouseBuffer } },
         ],
     });
     // Other buffers
     const predatorBuffer = gpu.createBuffer({
-        size: sizes.vec4 * uniforms.predatorCount,
-        usage: GPUBufferUsage.STORAGE,
+        size: sizes.vec4 * uniforms.maxPredatorCount,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
     const predatorSizeBuffer = gpu.createBuffer({
-        size: sizes.f32 * uniforms.predatorCount,
+        size: sizes.f32 * uniforms.maxPredatorCount,
         usage: GPUBufferUsage.STORAGE,
     });
     const preyBuffer = gpu.createBuffer({
@@ -164,15 +172,31 @@ async function main() {
         pass.setBindGroup(0, pixelBufferBindGroup);
         pass.setBindGroup(1, uniformsBuffersBindGroup);
         pass.setBindGroup(2, agentsBuffersBindGroup);
-        pass.dispatchWorkgroups(Math.max(uniforms.preyCount, uniforms.predatorCount) /
+        pass.dispatchWorkgroups(Math.max(uniforms.preyCount, uniforms.maxPredatorCount) /
             settings.agentWorkGroups);
         pass.end();
         gpu.queue.submit([encoder.finish()]);
     };
     reset();
+    const mouse = { x: 0, y: 0 };
+    const canvasRect = canvas.getBoundingClientRect();
+    document.addEventListener("mousemove", (e) => {
+        mouse.x = (e.clientX - canvasRect.left) / settings.scale;
+        mouse.y = (e.clientY - canvasRect.top) / settings.scale;
+    });
+    // mouse click
+    document.addEventListener("click", (e) => {
+        mouse.x = (e.clientX - canvasRect.left) / settings.scale;
+        mouse.y = (e.clientY - canvasRect.top) / settings.scale;
+        uniforms.currentPredatorCount += 1;
+        gpu.queue.writeBuffer(currentPredatorCountBuffer, 0, new Float32Array([uniforms.currentPredatorCount]));
+        gpu.queue.writeBuffer(predatorBuffer, sizes.vec4 * (uniforms.currentPredatorCount - 1), new Float32Array([mouse.x, mouse.y, 0, 0]));
+        console.log("click", mouse.x, mouse.y, uniforms.currentPredatorCount);
+    });
     /////////////////////////
     // RUN the sim compute function and render pixels
     const draw = () => {
+        gpu.queue.writeBuffer(mouseBuffer, 0, new Float32Array([mouse.x, mouse.y]));
         // Compute sim function
         const encoder = gpu.createCommandEncoder();
         const pass = encoder.beginComputePass();
@@ -180,7 +204,7 @@ async function main() {
         pass.setBindGroup(1, uniformsBuffersBindGroup);
         pass.setBindGroup(2, agentsBuffersBindGroup);
         pass.setPipeline(predatorPipeline);
-        pass.dispatchWorkgroups(Math.ceil(uniforms.predatorCount / settings.agentWorkGroups));
+        pass.dispatchWorkgroups(Math.ceil(uniforms.maxPredatorCount / settings.agentWorkGroups));
         pass.setPipeline(preyPipeline);
         pass.dispatchWorkgroups(Math.ceil(uniforms.preyCount / settings.agentWorkGroups));
         pass.setPipeline(fadePipeline);

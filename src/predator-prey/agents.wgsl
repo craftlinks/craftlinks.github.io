@@ -16,6 +16,9 @@
 @group(1) @binding(3) 
   var<uniform> preyCount : f32;
 
+@group(1) @binding(4) 
+  var<uniform> mouse: vec2f;
+
 // Agents
 @group(2) @binding(0)  
   var<storage, read_write> predators : array<vec4f>;
@@ -193,6 +196,12 @@ fn preySim(@builtin(global_invocation_id) id : vec3u) {
   let angle = atan2(p.y-rez/2,  p.x-rez/2);
   v -= vec2(sin(angle), -cos(angle)) * 0.0003;
   v -= vec2(p.x - rez/2, p.y-rez/2) * 0.000003;
+
+  let mouse_d = distance(p, mouse);
+  if(mouse_d < 100) {
+    acceleration +=  (p - mouse) / mouse_d;
+    v += acceleration * preyTurnFactor;
+  }
 
   if(length(v) > maxPreySpeed)  {
     v = maxPreySpeed * (v / length(v));
