@@ -10,7 +10,7 @@ const sizes = {
 const uniforms = {
     rez: 2048,
     maxPredatorCount: 100,
-    currentPredatorCount: 0,
+    currentPredatorCount: 500,
     preyCount: 16000,
     time: 0,
 };
@@ -190,7 +190,7 @@ async function main() {
         mouse.y = (e.clientY - canvasRect.top) / settings.scale;
         uniforms.currentPredatorCount += 1;
         gpu.queue.writeBuffer(currentPredatorCountBuffer, 0, new Float32Array([uniforms.currentPredatorCount]));
-        gpu.queue.writeBuffer(predatorBuffer, sizes.vec4 * (uniforms.currentPredatorCount - 1), new Float32Array([mouse.x, mouse.y, 0, 0]));
+        gpu.queue.writeBuffer(predatorBuffer, sizes.vec4 * (uniforms.currentPredatorCount - 1), new Float32Array([mouse.x, mouse.y, 1.0, 1.0]));
         console.log("click", mouse.x, mouse.y, uniforms.currentPredatorCount);
     });
     /////////////////////////

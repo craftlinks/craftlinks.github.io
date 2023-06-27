@@ -63,15 +63,15 @@ const radius = 20;
 const preyRadiusFactor = 4.0;
 const predatorRadiusFactor = 2.0;
 
-const maxSpeed = 0.5;
+const maxSpeed = 1.0;
 const maxPredatorSpeed = maxSpeed * 1.0;
 const maxPreySpeed = maxSpeed * 0.6;
 
 const predatorTurnFactor = 0.26;
-const predatorrFactor = 0.1;
+const predatorrFactor = 0.2;
 
-const preyTurnFactor = 0.04;
-const preyrFactor = 0.01;
+const preyTurnFactor = 0.05;
+const preyrFactor = 0.1;
 
 
 @compute @workgroup_size(256)
@@ -90,13 +90,13 @@ fn predatorSim(@builtin(global_invocation_id) id : vec3u) {
   var acceleration = vec2(0.0);
   var count = 0.0;
   for(var i=0; i < i32(preyCount); i++) {
-    if(preyStates[i] < 1) {
+    if(preyStates[i] < 0.5) {
       continue;
     }
     let prey = prey[i];
     let d = distance(prey.xy, p);
     if(d < size) {
-      if(size < 24) {
+      if(size < 15) {
         eaten = true;
         size += 0.2;
       }
@@ -141,14 +141,14 @@ fn predatorSim(@builtin(global_invocation_id) id : vec3u) {
   p = (p + rez) % rez;
   predators[id.x] = vec4(p, v);
 
-  if(size > 3) {
+  if(size > 5) {
     size *= 0.995;
   }
   predatorSizes[id.x] = size;
 
-  var color = vec4(0.9, 0.1, 0.0, 1.0);
+  var color = vec4(0.1, 0.0, 0.4, 1.0);
   if(eaten)  {
-    color = vec4(0.0, 1.0, 1.0, 1.0);
+    color = vec4(.7, 0.1, .0, 1.0);
   }
   let sizei = i32(ceil(size));
   for(var x = -sizei; x<= sizei; x++) {
@@ -198,7 +198,7 @@ fn preySim(@builtin(global_invocation_id) id : vec3u) {
   v -= vec2(p.x - rez/2, p.y-rez/2) * 0.000003;
 
   let mouse_d = distance(p, mouse);
-  if(mouse_d < 100) {
+  if(mouse_d < 250) {
     acceleration +=  (p - mouse) / mouse_d;
     v += acceleration * preyTurnFactor;
   }
@@ -210,35 +210,35 @@ fn preySim(@builtin(global_invocation_id) id : vec3u) {
 
   p = (p + rez) % rez;
 
-  color = vec4((100-closest)/400, 1.0 - length(v)/maxPreySpeed, closest/100 - .7, 1.0);
+  color = vec4(((100-closest)/250), (0.22 - length(v)/maxPreySpeed * 0.001), (closest/100 - .88), 1.0);
   if(preyStates[id.x] < 1) {
     v += (vec2(r(f32(id.x)+p.x), r(f32(id.y)+p.y)) - 0.5) * .01;
     p += v;
     if(length(v) > maxPreySpeed * 0.4)  {
       v = maxPreySpeed * (v / length(v) * 0.4);
     }
-    preyStates[id.x] += 0.0005;
+    preyStates[id.x] += 0.5;
   }  else {
 
   }
 
   if(preyStates[id.x] < 0.5) {
-    color = vec4(0.20, 0, 0, 1);
+    color = vec4(0.2, 0, 0, 1);
   } else {
-    color = mix(vec4(0.70, 0, 0, 1), color, preyStates[id.x]);
+    color = mix(vec4(0.90, 0, 0, 1), color, preyStates[id.x]);
   }
-  color *= 3.0;
+  color *= 7.0;
 
   prey[id.x] = vec4(p, v);
 
-  var depth = sin(time/100.0 + f32(id.x)) + 0.8;
-  let size = i32(1 + 8 * (f32(id.x) % 20.0) / 20.0 * .5 * (1.3 + sin(time / 100 + f32(id.x))));
+  //var depth = sin(time/50.0 + f32(id.x)) + 0.8;
+  let size = i32(1 + 8 * (f32(id.x) % 20.0) / 20.0);
 
   for(var x = -size; x<= size; x++) {
     for(var y=-size; y<= size; y++) {
       let l = (length(vec2(f32(x), f32(y))));
       if(l < f32(size)) {
-        pixels[index(p+vec2(f32(x), f32(y)))] += depth * .008 * color * smoothstep(.3, .4, 1-l/f32(size));
+        pixels[index(p+vec2(f32(x), f32(y)))] += .008 * color * smoothstep(.3, .4, 1-l/f32(size));
       }
     }
   }
@@ -247,6 +247,6 @@ fn preySim(@builtin(global_invocation_id) id : vec3u) {
 
 @compute @workgroup_size(16, 16)
 fn fade(@builtin(global_invocation_id) id : vec3u) {
-  pixels [id.x + id.y * u32(rez)] *= 1.0 - smoothstep(.89, 1.2, length(vec2f(id.xy) - rez/2)/(rez/2));
-  pixels[id.x + id.y * u32(rez)] *= .95;
+  pixels [id.x + id.y * u32(rez)] *= 1.0 - smoothstep(.85, 1.2, length(vec2f(id.xy) - rez/2)/(rez/2));
+  pixels[id.x + id.y * u32(rez)] *= .975;
 }
