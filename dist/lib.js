@@ -2,11 +2,6 @@
 // Load a file
 const load = async (path) => {
     try {
-        // Await, in Javascript, causes function execution to pause.
-        // Javascript execution will move on to other things
-        // And then return to this point in the code when the fetch returns.
-        // So, it's a way to write non-blocking, async code, without having to
-        // manage callback spagetti.
         const response = await fetch(path);
         if (response.ok) {
             const content = await response.text();
@@ -47,7 +42,6 @@ const createShaderModule = async (gpu, file) => {
 // input: device, pixel resolution, the buffer, the format, the context, the command encoder
 // output: none
 // side effect: renders the pixels to the canvas
-// for more information: you can look into how vertex and fragment shaders work in opengl or any other graphics framework
 let rp;
 const render = async (gpu, rez, buffer, format, context, encoder) => {
     // Call the existing function if it exists
@@ -166,5 +160,4 @@ const render = async (gpu, rez, buffer, format, context, encoder) => {
     // Call the function
     rp(encoder);
 };
-// In Javascript, we pass objects between files using the export/import syntax
 export { createShaderModule, render };
