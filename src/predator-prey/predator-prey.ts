@@ -21,7 +21,7 @@ const uniforms = {
 // CPU-only settings
 const settings = {
   scale:
-    (0.95 * Math.min(window.innerHeight, window.innerWidth)) / uniforms.rez,
+    (0.85 * Math.min(window.innerHeight, window.innerWidth)) / uniforms.rez,
   pixelCount: uniforms.rez ** 2 * sizes.vec4,
   agentWorkGroups: 256,
 };
