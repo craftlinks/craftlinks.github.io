@@ -3,7 +3,7 @@ import { createShaderModule, render } from "../lib.js";
 // GPU and CPU Settings
 const xmin = -1.5;
 const xmax = 1.5;
-const ymin = -0.95;
+const ymin = -1.1;
 const ymax = 2.0;
 // Sizes in bytes
 const sizes = {
@@ -154,10 +154,6 @@ async function main() {
         layout,
         compute: { module, entryPoint: "simulate" },
     });
-    const fadePipeline = gpu.createComputePipeline({
-        layout,
-        compute: { module, entryPoint: "fade" },
-    });
     /////////////////////////
     // RUN the reset shader function
     const reset = () => {
@@ -190,8 +186,6 @@ async function main() {
             pass.setBindGroup(0, pixelBufferBindGroup);
             pass.setBindGroup(1, uniformsBuffersBindGroup);
             pass.setBindGroup(2, agentsBuffersBindGroup);
-            pass.setPipeline(fadePipeline);
-            pass.dispatchWorkgroups(settings.pixelWorkgroups);
             pass.setPipeline(simulatePipeline);
             pass.dispatchWorkgroups(settings.pixelWorkgroups);
             pass.end();

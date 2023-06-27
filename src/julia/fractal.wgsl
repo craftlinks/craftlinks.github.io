@@ -26,8 +26,8 @@
 @group(2) @binding(1)  
   var<storage, read_write> velocities : array<vec2f>;
 
-const juliaXMin = -0.72580000000000;
-const juliaXMax = -0.22580000000000;
+const juliaXMin = -0.82580000000000;
+const juliaXMax = -0.0580000000000;
 const juliaXDiff = juliaXMax - juliaXMin;
 const juliaYMin = 0.40250000000000;
 const juliaYMax = 0.70250000000000;
@@ -53,7 +53,7 @@ fn  mandelbrot(c: vec2f, j: vec2f) -> vec4f {
     }
     i += 1;
   }
-  return vec4f(-((f32(i)/ 200.0)-1.1), -((f32(i)/ 200.0)-1.1), -((f32(i)/ 200.0)-1.1), 1);
+  return vec4f((f32(i)/ 200.0), (f32(i)/ 200.0), (f32(i)/ 200.0), 1);
 }
 
 @compute @workgroup_size(256)
@@ -75,10 +75,4 @@ fn simulate(@builtin(global_invocation_id) id : vec3u) {
   var juliaY = juliaYMin + (mouse.y * juliaStepSize * juliaYDiff) ;
 
   pixels[id.x] = mandelbrot(vec2(x, y), vec2(juliaX, juliaY));
-}
-
-
-@compute @workgroup_size(256)
-fn fade(@builtin(global_invocation_id) id : vec3u) {
-  pixels[id.x] *= 0.90;
 }
