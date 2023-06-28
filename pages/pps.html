@@ -1,0 +1,32 @@
+<!-- CraftLinks 2023-->
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" type="text/css" href="../commonStyle.css">
+    <title>CraftLinks</title>
+    <!--Contains the template HTML snippets -->
+    <script type="text/javascript" src="../dist/html-snippets.js"></script>
+
+</head>
+
+<body>
+
+    <!--Craftlinks Header and moto -->
+    <div id="headerSnippet"></div>
+    <script>document.getElementById('headerSnippet').innerHTML = header();</script>
+
+    <!-- Buttons linking to simulations -->
+    <div id="navigationButtons"></div>
+    <script>document.getElementById('navigationButtons').innerHTML = navigationButtons();</script>
+    <p>The Primordial Particle System (PPS) from a paper by Thomas Schmickl & Martin Stefanec of Graz University, Austria.</p>
+    <!-- The paper is available here: https://www.nature.com/articles/srep37969.pdf -->
+    <a href="https://www.nature.com/articles/srep37969.pdf" style="color:#6A5ACD">The original paper is available here.</a></p>
+    <br> 
+    <h2 style="color: #DAA520; font-family: Roboto; font-style: italic;">!under development!</h2>
+    <!-- The predator-prey simulation code -->
+    <script type="module" src="../dist/pps/pps.js"></script>
+</body>
+
+</html>

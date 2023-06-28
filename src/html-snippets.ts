@@ -13,5 +13,6 @@ function navigationButtons() {
         baseURL = "https://www.craftlinks.art";
     }
     return `<a href = "${baseURL}/pages/julia.html" class="button">Julia</a>
-    <a href = "${baseURL}/pages/predator-prey.html" class="button">Predator-prey</a>`;
+    <a href = "${baseURL}/pages/predator-prey.html" class="button">Predator-prey</a>
+    <a href = "${baseURL}/pages/pps.html" class="button">Primordial Particle System</a>`;
 }
