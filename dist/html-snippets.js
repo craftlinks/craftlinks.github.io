@@ -1,6 +1,6 @@
 "use strict";
 function header() {
-    return ` <div class="title">CraftLinks</div>
+    return ` <div class="titleName">CraftLinks</div>
 <div class="subtitle">Creator of Digital Artificial Life</div>`;
 }
 function navigationButtons() {

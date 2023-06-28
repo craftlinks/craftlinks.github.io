@@ -1,5 +1,3 @@
-//////////////////////////////
-// Load a file
 const load = async (path) => {
     try {
         const response = await fetch(path);
@@ -15,11 +13,6 @@ const load = async (path) => {
         console.error(error);
     }
 };
-//////////////////////////////
-// Create a shader module
-// input: gpu device, file path
-// output: shader module
-// outputs any errors if module does not compile
 const createShaderModule = async (gpu, file) => {
     const code = await load(file);
     if (!code) {
@@ -36,43 +29,27 @@ const createShaderModule = async (gpu, file) => {
     }
     return module;
 };
-//////////////////////////////
-// render
-// Render a buffer of pixels to an html canvas context
-// input: device, pixel resolution, the buffer, the format, the context, the command encoder
-// output: none
-// side effect: renders the pixels to the canvas
 let rp;
-const render = async (gpu, rez, buffer, format, context, encoder) => {
-    // Call the existing function if it exists
+const render = async (gpu, resolution, buffer, format, context, commandEncoder) => {
     if (rp) {
-        rp(encoder);
+        rp(commandEncoder);
         return;
     }
-    // Otherwise create the function...
-    let background;
-    if (window.getComputedStyle(document.body).backgroundColor ==
-        "rgb(255, 255, 255)") {
-        background = "vec4(1.0)";
-    }
-    else {
-        background = "vec4(0.0, 0.0, 0.0, 1.0)";
-    }
-    // Vertex and fragment shaders
-    let quadShader = gpu.createShaderModule({
+    // shader will be generated once, then reused.
+    let textureShader = gpu.createShaderModule({
         code: `
         @group(0) @binding(0)  
         var<storage, read_write> pixels : array<vec4f>;
   
         struct VertexOutput {
-          @builtin(position) Position : vec4f,
-            @location(0) fragUV : vec2f,
+          @builtin(position) vertexPosition : vec4f,
+            @location(0) UV : vec2f,
         }
         
         @vertex
         fn vert(@builtin(vertex_index) VertexIndex : u32) -> VertexOutput {
         
-          const pos = array(
+          const vertices = array(
             vec2( 1.0,  1.0),
             vec2( 1.0, -1.0),
             vec2(-1.0, -1.0),
@@ -91,28 +68,27 @@ const render = async (gpu, rez, buffer, format, context, encoder) => {
           );
   
           var output : VertexOutput;
-          output.Position = vec4(pos[VertexIndex], 0.0, 1.0);
-          output.fragUV = uv[VertexIndex];
+          output.vertexPosition = vec4(vertices[VertexIndex], 0.0, 1.0);
+          output.UV = uv[VertexIndex];
           return output;
         }
         
         @fragment
-        fn frag(@location(0) fragUV : vec2f) -> @location(0) vec4f {
+        fn frag(@location(0) UV : vec2f) -> @location(0) vec4f {
           var color = vec4(1.0, 1.0, 1.0, 1.0);
-          color = pixels[i32((fragUV.x * ${rez}) + floor(fragUV.y * ${rez}) * ${rez})];
+          color = pixels[i32((UV.x * ${resolution}) + floor(UV.y * ${resolution}) * ${resolution})];
           return color;
         }
       `,
     });
-    // Traditional render pipeline of vert -> frag
     const renderPipeline = gpu.createRenderPipeline({
         layout: "auto",
         vertex: {
-            module: quadShader,
+            module: textureShader,
             entryPoint: "vert",
         },
         fragment: {
-            module: quadShader,
+            module: textureShader,
             entryPoint: "frag",
             targets: [
                 {
@@ -124,9 +100,7 @@ const render = async (gpu, rez, buffer, format, context, encoder) => {
             topology: "triangle-list",
         },
     });
-    // The only binding is the pixel buffer
-    // Since we render directly to the canvas, not to an intermediate texture
-    const bg = gpu.createBindGroup({
+    const bindGroup = gpu.createBindGroup({
         layout: renderPipeline.getBindGroupLayout(0),
         entries: [
             {
@@ -134,12 +108,11 @@ const render = async (gpu, rez, buffer, format, context, encoder) => {
                 resource: {
                     buffer: buffer,
                     offset: 0,
-                    size: rez * rez * 16,
+                    size: resolution * resolution * 16,
                 },
             },
         ],
     });
-    // Create a function that adds the render pass to the given command encoder
     rp = (commandEncoder) => {
         const renderPass = commandEncoder.beginRenderPass({
             colorAttachments: [
@@ -152,12 +125,10 @@ const render = async (gpu, rez, buffer, format, context, encoder) => {
             ],
         });
         renderPass.setPipeline(renderPipeline);
-        renderPass.setBindGroup(0, bg);
-        // The actual draw command
+        renderPass.setBindGroup(0, bindGroup);
         renderPass.draw(6, 1, 0, 0);
         renderPass.end();
     };
-    // Call the function
-    rp(encoder);
+    rp(commandEncoder);
 };
 export { createShaderModule, render };
