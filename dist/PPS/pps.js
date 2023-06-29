@@ -149,7 +149,7 @@ async function main() {
     });
     /////////////////////////
     // Set up code instructions
-    const module = await createShaderModule(gpu, "../../src/pps/pps.wgsl");
+    const module = await createShaderModule(gpu, "../../src/PPS/pps.wgsl");
     const resetPipeline = gpu.createComputePipeline({
         layout,
         compute: { module, entryPoint: "reset" },
