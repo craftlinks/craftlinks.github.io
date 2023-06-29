@@ -201,7 +201,7 @@ async function main() {
     gui.add(uniforms, "alpha").min(-180).max(180);
     gui.add(uniforms, "beta").min(-60).max(60);
     gui.add(uniforms, "radius").min(0.0).max(64);
-    gui.add(uniforms, "count").min(1).max(6666).step(1);
+    gui.add(uniforms, "count").min(1).max(12666).step(1);
     gui.onChange(writeUniforms);
 }
 main();
