@@ -1,5 +1,6 @@
 import { createShaderModule, render } from "../lib.js";
-import { GUI } from 'lil-gui';
+import GUI from '../../node_modules/lil-gui/dist/lil-gui.esm.js';
+
 
 /////////////////////////////////////////////////////////
 // GPU and CPU Settings
@@ -236,7 +237,7 @@ async function main() {
   };
   draw();
 
-  let gui = new lil.GUI();
+  let gui = new GUI();
   gui.add(uniforms, "alpha").min(-180).max(180);
   gui.add(uniforms, "beta").min(-60).max(60);
   gui.add(uniforms, "radius").min(0.0).max(64);
