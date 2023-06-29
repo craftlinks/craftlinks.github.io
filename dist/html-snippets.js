@@ -15,3 +15,7 @@ function navigationButtons() {
     <a href = "${baseURL}/pages/predator-prey.html" class="button">Predator-prey</a>
     <a href = "${baseURL}/pages/pps.html" class="button">Primordial Particle System</a>`;
 }
+
+function guiContainer() {
+    return `<div id="guiContainer" class="guiContainer"></div>`;
+}

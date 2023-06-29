@@ -237,7 +237,12 @@ async function main() {
   };
   draw();
 
-  let gui = new GUI();
+  let container = document.getElementById("guiContainer");
+  if (!container) {
+    console.log("No GUI container found");
+  }
+
+  let gui = new GUI({ container:  container });
   gui.add(uniforms, "alpha").min(-180).max(180);
   gui.add(uniforms, "beta").min(-60).max(60);
   gui.add(uniforms, "radius").min(0.0).max(64);

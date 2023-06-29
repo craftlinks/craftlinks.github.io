@@ -23,7 +23,10 @@
     <p>The Primordial Particle System (PPS) from a paper by Thomas Schmickl & Martin Stefanec of Graz University, Austria.</p>
     <!-- The paper is available here: https://www.nature.com/articles/srep37969.pdf -->
     <a href="https://www.nature.com/articles/srep37969.pdf" style="color:#6A5ACD">The original paper is available here.</a></p>
-    <br> 
+
+    <div id="gui"></div>
+    <script>document.getElementById('gui').innerHTML =guiContainer()</script>
+    <br>
     <!-- The predator-prey simulation code -->
     <script type="module" src="../dist/PPS/pps.js"></script>
 </body>
