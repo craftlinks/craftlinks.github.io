@@ -11,12 +11,12 @@ const sizes = {
     vec4: 16,
 };
 const uniforms = {
-    rez: 256,
+    rez: 512,
     time: 0,
     alpha: -100,
     beta: -3,
-    radius: 10,
-    count: 6666,
+    radius: 13.6,
+    count: 12666,
 };
 // CPU-only settings
 const settings = {
