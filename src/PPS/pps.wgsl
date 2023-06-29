@@ -139,11 +139,21 @@ fn simulate(@builtin(global_invocation_id) id : vec3u) {
   positions[id.x] = p;
   angles[id.x] = a;
 
+  let sizei = i32(3);
+  for(var x = -sizei; x<= sizei; x++) {
+    for(var y=-sizei; y<= sizei; y++) {
+      let l = (length(vec2(f32(x), f32(y))));
+      if(l < f32(sizei)) {
+        pixels[index(p+vec2(f32(x), f32(y)))] += .10 * ( vec4(hsv2rgb(n/36, 0.9, 1.0), 1.0) * (1.0-l/f32(sizei)));
+      }
+    }
+  }
+
   // Draw
-  pixels[index(p)] = vec4(hsv2rgb(n/35, 1.0, 1.0), 1.0);
+  //pixels[index(p)] = vec4(hsv2rgb(n/36, 1.0, 1.0), 1.0);
 }
 
 @compute @workgroup_size(256)
 fn fade(@builtin(global_invocation_id) id : vec3u) {
-  pixels[id.x] *= 0.95;
+  pixels[id.x] *= 0.90;
 }
