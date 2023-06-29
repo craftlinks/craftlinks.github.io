@@ -39,7 +39,7 @@ fn index(p: vec2f) -> i32 {
   return i32(p.x) + i32(p.y) * i32(rez);
 }
 
-@compute @workgroup_size(256)
+@compute @workgroup_size(32)
 fn reset(@builtin(global_invocation_id) id : vec3u) {
   let seed = f32(id.x)/f32(count);
   var p = vec2(r(seed), r(seed + 0.1));
@@ -103,7 +103,7 @@ fn isOnRightSide(p : vec2f, v : vec2f, op : vec2f) -> bool {
 
 }
 
-@compute @workgroup_size(256)
+@compute @workgroup_size(32)
 fn simulate(@builtin(global_invocation_id) id : vec3u) {
   var p = positions[id.x];
   var a = angles[id.x];
@@ -153,7 +153,7 @@ fn simulate(@builtin(global_invocation_id) id : vec3u) {
   //pixels[index(p)] = vec4(hsv2rgb(n/36, 1.0, 1.0), 1.0);
 }
 
-@compute @workgroup_size(256)
+@compute @workgroup_size(32)
 fn fade(@builtin(global_invocation_id) id : vec3u) {
   pixels[id.x] *= 0.90;
 }

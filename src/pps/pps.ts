@@ -12,6 +12,7 @@ const sizes = {
   i32: 4,
   vec2: 8,
   vec4: 16,
+  workGroupSize: 32,
 };
 
 const uniforms = {
@@ -27,8 +28,8 @@ const uniforms = {
 const settings = {
   scale:
     (0.95 * Math.min(window.innerHeight, window.innerWidth)) / uniforms.rez,
-  pixelWorkgroups: Math.ceil(uniforms.rez ** 2 / 256),
-  agentWorkgroups: Math.ceil(uniforms.count / 256),
+  pixelWorkgroups: Math.ceil(uniforms.rez ** 2 / sizes.workGroupSize),
+  agentWorkgroups: Math.ceil(uniforms.count / sizes.workGroupSize),
 };
 
 /////////////////////////////////////////////////////////
@@ -139,7 +140,7 @@ async function main() {
     );
     gpu.queue.writeBuffer(radiusBuffer, 0, new Float32Array([uniforms.radius]));
 
-    settings.agentWorkgroups = Math.ceil(uniforms.count / 256);
+    settings.agentWorkgroups = Math.ceil(uniforms.count / sizes.workGroupSize);
   };
 
   writeUniforms();
@@ -233,7 +234,7 @@ async function main() {
 
     gpu.queue.writeBuffer(timeBuffer, 0, new Float32Array([uniforms.time++]));
 
-    setTimeout(draw, 10);
+    requestAnimationFrame(draw);
   };
   draw();
 

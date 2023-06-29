@@ -9,6 +9,7 @@ const sizes = {
     i32: 4,
     vec2: 8,
     vec4: 16,
+    workGroupSize: 32,
 };
 const uniforms = {
     rez: 1024,
@@ -21,8 +22,8 @@ const uniforms = {
 // CPU-only settings
 const settings = {
     scale: (0.95 * Math.min(window.innerHeight, window.innerWidth)) / uniforms.rez,
-    pixelWorkgroups: Math.ceil(uniforms.rez ** 2 / 256),
-    agentWorkgroups: Math.ceil(uniforms.count / 256),
+    pixelWorkgroups: Math.ceil(uniforms.rez ** 2 / sizes.workGroupSize),
+    agentWorkgroups: Math.ceil(uniforms.count / sizes.workGroupSize),
 };
 /////////////////////////////////////////////////////////
 // Main
@@ -117,7 +118,7 @@ async function main() {
         gpu.queue.writeBuffer(alphaBuffer, 0, new Float32Array([(uniforms.alpha * Math.PI) / 180.0]));
         gpu.queue.writeBuffer(betaBuffer, 0, new Float32Array([(uniforms.beta * Math.PI) / 180.0]));
         gpu.queue.writeBuffer(radiusBuffer, 0, new Float32Array([uniforms.radius]));
-        settings.agentWorkgroups = Math.ceil(uniforms.count / 256);
+        settings.agentWorkgroups = Math.ceil(uniforms.count / sizes.workGroupSize);
     };
     writeUniforms();
     // Other buffers
@@ -194,7 +195,7 @@ async function main() {
         render(gpu, uniforms.rez, pixelBuffer, format, context, encoder);
         gpu.queue.submit([encoder.finish()]);
         gpu.queue.writeBuffer(timeBuffer, 0, new Float32Array([uniforms.time++]));
-        setTimeout(draw, 10);
+        requestAnimationFrame(draw);
     };
     draw();
     let container = document.getElementById("guiContainer");
