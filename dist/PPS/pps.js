@@ -200,6 +200,7 @@ async function main() {
     let container = document.getElementById("guiContainer");
     if (!container) {
         console.log("No GUI container found");
+        return;
     }
     let gui = new GUI({ container: container });
     gui.add(uniforms, "alpha").min(-180).max(180);
