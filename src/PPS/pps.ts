@@ -1,5 +1,5 @@
 import { createShaderModule, render } from "../lib.js";
-import GUI from '../../node_modules/lil-gui/dist/lil-gui.esm.js';
+import GUI from '../lil-gui.esm.js';
 
 
 /////////////////////////////////////////////////////////
