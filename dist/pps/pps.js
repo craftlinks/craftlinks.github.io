@@ -203,11 +203,17 @@ async function main() {
         console.log("No GUI container found");
         return;
     }
+    let buttonObj = {
+        reset: () => {
+            reset();
+        }
+    };
     let gui = new GUI({ container: container });
     gui.add(uniforms, "alpha").min(-180).max(180);
     gui.add(uniforms, "beta").min(-60).max(60);
     gui.add(uniforms, "radius").min(0.0).max(64);
     gui.add(uniforms, "count").min(1).max(12666).step(1);
+    gui.add(buttonObj, "reset");
     gui.onChange(writeUniforms);
 }
 main();
