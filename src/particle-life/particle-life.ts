@@ -18,8 +18,8 @@ const sizes = {
 const uniforms = {
     rez: 1024,
     time: 0,
-    radius: 26.88,
-    count: 1000,
+    radius: 50,
+    count: 6000,
     number_of_colors: 6,
 };
 
@@ -99,6 +99,21 @@ async function main() {
     });
     gpu.queue.writeBuffer(numberOfColorsBuffer, 0, new Uint32Array([uniforms.number_of_colors]));
 
+    // Color matrix
+    const matrixBuffer = gpu.createBuffer({
+        size: sizes.f32 * uniforms.number_of_colors * uniforms.number_of_colors *4,
+        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
+    });
+
+    const makeRandomMatrix = () => {
+        let matrix: number[] = [];
+        for (let i = 0; i < uniforms.number_of_colors ** 2; i++) {
+            matrix[i] = Math.random() * 2 - 1;
+        }
+        return matrix;
+    }
+    gpu.queue.writeBuffer(matrixBuffer, 0, new Float32Array(makeRandomMatrix()));
+
     const uniformsLayout = gpu.createBindGroupLayout({
         entries: [
             { visibility, binding: 0, buffer: { type: "uniform" } },
@@ -106,6 +121,7 @@ async function main() {
             { visibility, binding: 2, buffer: { type: "uniform" } },
             { visibility, binding: 3, buffer: { type: "uniform" } },
             { visibility, binding: 4, buffer: { type: "uniform" } },
+            { visibility, binding: 5, buffer: { type: "uniform" } },
         ],
     });
     const uniformsBuffersBindGroup = gpu.createBindGroup({
@@ -116,6 +132,7 @@ async function main() {
             { binding: 2, resource: { buffer: countBuffer } },
             { binding: 3, resource: { buffer: radiusBuffer } },
             { binding: 4, resource: { buffer: numberOfColorsBuffer } },
+            { binding: 5, resource: { buffer: matrixBuffer } },
         ],
     });
 
