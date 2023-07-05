@@ -16,11 +16,11 @@ const sizes = {
 };
 
 const uniforms = {
-    rez: 1024,
+    rez: 512,
     time: 0,
     radius: 50,
-    count: 6000,
-    number_of_colors: 6,
+    count: 15000,
+    number_of_colors: 3,
 };
 
 // CPU-only settings
@@ -101,7 +101,7 @@ async function main() {
 
     // Color matrix
     const matrixBuffer = gpu.createBuffer({
-        size: sizes.f32 * uniforms.number_of_colors * uniforms.number_of_colors *4,
+        size: sizes.f32 * uniforms.number_of_colors * uniforms.number_of_colors * 4,
         usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
     });
 
@@ -110,6 +110,7 @@ async function main() {
         for (let i = 0; i < uniforms.number_of_colors ** 2; i++) {
             matrix[i] = Math.random() * 2 - 1;
         }
+        console.log(matrix);
         return matrix;
     }
     gpu.queue.writeBuffer(matrixBuffer, 0, new Float32Array(makeRandomMatrix()));
@@ -148,7 +149,7 @@ async function main() {
     // Other buffers
     const positionsBuffer = gpu.createBuffer({
         size: sizes.vec2 * uniforms.count,
-        usage: GPUBufferUsage.STORAGE,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
     const velocitiesBuffer = gpu.createBuffer({
         size: sizes.vec2 * uniforms.count,
@@ -203,6 +204,14 @@ async function main() {
     /////////////////////////
     // RUN the reset shader function
     const reset = () => {
+        
+        // generate random positions
+        const positions = new Float32Array(uniforms.count * 2);
+        for (let i = 0; i < uniforms.count; i++) {
+            positions[i * 2] = (Math.random())*uniforms.rez;
+            positions[i * 2 + 1] = (Math.random())*uniforms.rez;
+        }
+        gpu.queue.writeBuffer(positionsBuffer, 0, positions);
         const encoder = gpu.createCommandEncoder();
         const pass = encoder.beginComputePass();
         pass.setPipeline(resetPipeline);
@@ -238,7 +247,7 @@ async function main() {
 
         gpu.queue.submit([encoder.finish()]);
 
-        gpu.queue.writeBuffer(timeBuffer, 0, new Float32Array([uniforms.time++]));
+        gpu.queue.writeBuffer(timeBuffer, 0, new Float32Array());
 
         requestAnimationFrame(draw);
     };
