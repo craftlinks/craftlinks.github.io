@@ -1,20 +1,15 @@
-const load = async (path) => {
-    try {
-        const response = await fetch(path);
-        if (response.ok) {
-            const content = await response.text();
-            return content;
-        }
-        else {
-            throw new Error(`Error loading: ${path}`);
-        }
+export const load_file = async (path) => {
+    const response = await fetch(path);
+    if (response.ok) {
+        const content = await response.text();
+        return content;
     }
-    catch (error) {
-        console.error(error);
+    else {
+        throw new Error(`Error loading: ${path}`);
     }
 };
 const createShaderModule = async (gpu, file) => {
-    const code = await load(file);
+    const code = await load_file(file);
     if (!code) {
         throw new Error(`Could not load ${file}`);
     }

@@ -1,20 +1,16 @@
 
-const load = async (path: string) => {
-    try {
-        const response = await fetch(path);
-        if (response.ok) {
-            const content = await response.text();
-            return content;
-        } else {
-            throw new Error(`Error loading: ${path}`);
-        }
-    } catch (error) {
-        console.error(error);
+export const load_file = async (path: string) => {
+    const response = await fetch(path);
+    if (response.ok) {
+        const content = await response.text();
+        return content;
+    } else {
+        throw new Error(`Error loading: ${path}`);
     }
 };
 
 const createShaderModule = async (gpu: GPUDevice, file: string) => {
-    const code = await load(file);
+    const code = await load_file(file);
     if (!code) {
         throw new Error(`Could not load ${file}`);
     }
@@ -32,7 +28,7 @@ const createShaderModule = async (gpu: GPUDevice, file: string) => {
 
 let rp: (commandEncoder: GPUCommandEncoder) => void;
 const render = async (gpu: GPUDevice, resolution: number, buffer: GPUBuffer, format: GPUTextureFormat, context: GPUCanvasContext, commandEncoder: GPUCommandEncoder) => {
-   
+
     if (rp) {
         rp(commandEncoder);
         return;
