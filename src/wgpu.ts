@@ -239,17 +239,28 @@ export class WGPU {
 
     ////////////////////////////////////////
     // dispatch a compute pass
-    dispatchComputePass = () => {
-        // TODO: dispatch compute pass
-        throw new Error("Not implemented");
+    dispatchComputePass = (settings: ComputePassSettings) => {
+        const computePass = settings.encoder.beginComputePass();
+        computePass.setPipeline(settings.pipeline);
+        computePass.setBindGroup(0, settings.bindGroup);
+        computePass.dispatchWorkgroups(...settings.workGroups);
+        computePass.end();
     }
 }
 
 interface BindGroupSettings {
     bindings: (GPUBuffer | GPUTextureView | GPUSampler | GPUExternalTexture)[];
     pipeline: GPUComputePipeline | GPURenderPipeline;
-    group: number;  // replace with the appropriate type
+    group: number;
 }
+
+interface ComputePassSettings {
+    pipeline: GPUComputePipeline;
+    bindGroup: GPUBindGroup;
+    workGroups: [number, number, number];
+    encoder: GPUCommandEncoder;
+}
+
 
 interface RenderContext {
     renderPipeline: GPURenderPipeline;

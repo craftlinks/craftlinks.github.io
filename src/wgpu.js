@@ -76,9 +76,12 @@ export class WGPU {
         };
         ////////////////////////////////////////
         // dispatch a compute pass
-        this.dispatchComputePass = () => {
-            // TODO: dispatch compute pass
-            throw new Error("Not implemented");
+        this.dispatchComputePass = (settings) => {
+            const computePass = settings.encoder.beginComputePass();
+            computePass.setPipeline(settings.pipeline);
+            computePass.setBindGroup(0, settings.bindGroup);
+            computePass.dispatchWorkgroups(...settings.workGroups);
+            computePass.end();
         };
         // Create the canvas
         this.canvas = document.createElement('canvas');
