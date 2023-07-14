@@ -155,12 +155,11 @@ export class WGPU {
 
     ////////////////////////////////////////
     // Create a compute pipeline given a WGSL file and entry function
-    createComputePipeline = async (file: string, fn: string) => {
-        const shaderModule = await this.compileShader(file);
+    createComputePipeline = async (module: GPUShaderModule , fn: string) => {
         const computePipeline = this.device.createComputePipeline({
             layout: "auto",
             compute: {
-                module: shaderModule,
+                module: module,
                 entryPoint: fn,
             },
         });
@@ -249,8 +248,8 @@ export class WGPU {
 }
 
 interface BindGroupSettings {
-    bindings: (GPUBuffer | GPUTextureView | GPUSampler | GPUExternalTexture)[];
     pipeline: GPUComputePipeline | GPURenderPipeline;
+    bindings: (GPUBuffer | GPUTextureView | GPUSampler | GPUExternalTexture)[];
     group: number;
 }
 

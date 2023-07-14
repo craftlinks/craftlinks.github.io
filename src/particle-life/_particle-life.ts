@@ -108,6 +108,52 @@ async function main() {
     const pixelBuffer = PixelBuffer(wgpu);
     const outTexture = wgpu.createTexture();
 
+    // Create compute pipelines
+    const shaderModule = await wgpu.compileShader("particle-life.wgsl");
+    const resetPipeline = await wgpu.createComputePipeline(shaderModule, "reset");
+    const simulatePipeline = await wgpu.createComputePipeline(shaderModule, "simulate");
+    const fadePipeline = await wgpu.createComputePipeline(shaderModule, "fade");
+    
+    // Create bindgroups
+    const resetBindGroup = await wgpu.createBindGroup(
+        {
+            pipeline: resetPipeline,
+            bindings: [
+                pixelBuffer,
+                agentsBuffer,
+                uniformsBuffer,
+            ],
+            group: 0,
+        }
+    );
+
+    const simulateBindGroup = await wgpu.createBindGroup(
+        {
+            pipeline: resetPipeline,
+            bindings: [
+                pixelBuffer,
+                agentsBuffer,
+                uniformsBuffer,
+            ],
+            group: 0,
+        }
+    );
+
+    const fadeBindGroup = await wgpu.createBindGroup(
+        {
+            pipeline: resetPipeline,
+            bindings: [
+                pixelBuffer,
+                agentsBuffer,
+                uniformsBuffer,
+            ],
+            group: 0,
+        }
+    );
+
+    const encoder = wgpu.device.createCommandEncoder();
+    encoder.copyTextureToTexture()
+
     /////////////////////////
     // RUN the reset shader function
     const reset = () => {

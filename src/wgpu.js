@@ -5,12 +5,11 @@ export class WGPU {
     constructor(width, height) {
         ////////////////////////////////////////
         // Create a compute pipeline given a WGSL file and entry function
-        this.createComputePipeline = async (file, fn) => {
-            const shaderModule = await this.compileShader(file);
+        this.createComputePipeline = async (module, fn) => {
             const computePipeline = this.device.createComputePipeline({
                 layout: "auto",
                 compute: {
-                    module: shaderModule,
+                    module: module,
                     entryPoint: fn,
                 },
             });
