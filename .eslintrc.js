@@ -12,5 +12,5 @@ module.exports = {
     "rules": {
         "@typescript-eslint/dot-notation": "error"
       },
-    "ignorePatterns": ["**/*.js"],
+    "ignorePatterns": ["**/*.js"]
 }

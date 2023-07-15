@@ -1,5 +1,5 @@
-import { WGPU } from '../wgpu.js'
-import GUI from '../lil-gui.esm.js'
+import { WGPU } from '../wgpu'
+import GUI from '../lil-gui.esm'
 
 /// //////////////////////////////////////////////////////
 // GPU and CPU Settings
@@ -26,9 +26,9 @@ const scale = 0.95
 const min = Math.min(window.innerHeight, window.innerWidth)
 const width = min * scale
 const height = min * scale
-const agent_types = 3
+const agentTypes = 3
 
-const PixelBuffer = (wgpu: WGPU) => {
+const PixelBuffer = (wgpu: WGPU): GPUBuffer => {
   const pixelBuffer = wgpu.device.createBuffer({
     size: uniforms.rez ** 2 * sizes.vec4,
     usage: GPUBufferUsage.STORAGE
@@ -36,7 +36,7 @@ const PixelBuffer = (wgpu: WGPU) => {
   return pixelBuffer
 }
 
-const AgenstsBuffer = (wgpu: WGPU) => {
+const AgenstsBuffer = (wgpu: WGPU): GPUBuffer => {
   const stride = 6
   const agents = new Float32Array(uniforms.count * stride)
   for (let i = 0; i < uniforms.count; i++) {
@@ -51,7 +51,7 @@ const AgenstsBuffer = (wgpu: WGPU) => {
     agents[i * stride + offset++] = 0.0
 
     // agent type
-    agents[i * stride + offset++] = Math.round(Math.random() * agent_types)
+    agents[i * stride + offset++] = Math.round(Math.random() * agentTypes)
   }
 
   const agentsBuffer = wgpu.device.createBuffer({
@@ -65,7 +65,7 @@ const AgenstsBuffer = (wgpu: WGPU) => {
   return agentsBuffer
 }
 
-const UniformsBuffer = (wgpu: WGPU) => {
+const UniformsBuffer = (wgpu: WGPU): GPUBuffer => {
   const _uniform = new Float32Array([uniforms.rez, uniforms.time, uniforms.radius, uniforms.count, uniforms.number_of_colors])
   const uniformsBuffer = wgpu.device.createBuffer({
     size: _uniform.byteLength,
@@ -76,7 +76,7 @@ const UniformsBuffer = (wgpu: WGPU) => {
   return uniformsBuffer
 }
 
-const AgentsInteractionsBuffer = (wgpu: WGPU) => {
+const AgentsInteractionsBuffer = (wgpu: WGPU): GPUBuffer => {
   const agentInteractions = new Float32Array(uniforms.count ** 2)
   for (let i = 0; i < uniforms.count; i++) {
     for (let j = 0; j < uniforms.count; j++) {
@@ -94,9 +94,9 @@ const AgentsInteractionsBuffer = (wgpu: WGPU) => {
 
 /// //////////////////////////////////////////////////////
 // Main
-async function main () {
+async function main (): Promise<void> {
   // Create a WGPU instance
-  const wgpu = await new WGPU(width, height)
+  const wgpu = new WGPU(width, height)
 
   // Create and initialize buffers
   const agentsBuffer = AgenstsBuffer(wgpu)
@@ -104,6 +104,9 @@ async function main () {
   const agentInteractionsBuffer = AgentsInteractionsBuffer(wgpu)
   const pixelBuffer = PixelBuffer(wgpu)
   const outTexture = wgpu.createTexture()
+  const fadedTexture = wgpu.createTexture()
+  const texRead = wgpu.createTexture()
+  const texWrite = wgpu.createTexture()
 
   // Create compute pipelines
   const shaderModule = await wgpu.compileShader('particle-life.wgsl')
@@ -126,7 +129,7 @@ async function main () {
 
   const simulateBindGroup = await wgpu.createBindGroup(
     {
-      pipeline: resetPipeline,
+      pipeline: simulatePipeline,
       bindings: [
         pixelBuffer,
         agentsBuffer,
@@ -138,7 +141,7 @@ async function main () {
 
   const fadeBindGroup = await wgpu.createBindGroup(
     {
-      pipeline: resetPipeline,
+      pipeline: fadePipeline,
       bindings: [
         pixelBuffer,
         agentsBuffer,
@@ -160,7 +163,10 @@ async function main () {
 
   /// //////////////////////
   // RUN the sim compute function and render pixels
-  const draw = () => {
+  const draw = (): void => {
+    
+    
+    
     requestAnimationFrame(draw)
   }
   draw()
@@ -183,4 +189,5 @@ async function main () {
   // gui.add(buttonObj, "reset");
   // gui.onChange(writeUniforms);
 }
-main()
+
+void main()

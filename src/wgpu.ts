@@ -14,7 +14,12 @@ export class WGPU {
     this.canvas = document.createElement('canvas')
     this.canvas.width = width
     this.canvas.height = height
-    document.body.appendChild(canvas!)
+    if (this.canvas == null) {
+      console.log('Failed to create canvas')
+      throw new Error('Failed to create canvas')
+    }
+    document.body.appendChild(this.canvas)
+
     this.context = this.canvas.getContext('webgpu') as GPUCanvasContext
     this.swapChainFormat = 'bgra8unorm'
 
@@ -26,24 +31,14 @@ export class WGPU {
     })
   }
 
-  private async init () {
-    // Check if WebGPU is supported
-    if (!navigator.gpu) {
-      console.log('WebGPU is not supported')
-      throw 'WebGPU is not supported'
-    }
-
+  private async init (): Promise<void> {
     const adapter = await navigator.gpu.requestAdapter()
     if (adapter == null) {
       console.log('Failed to get an adapter')
-      throw 'Failed to get an adapter'
+      throw new Error('Failed to get an adapter')
     }
 
     this.device = await adapter.requestDevice()
-    if (!this.device) {
-      console.log('Failed to get a device')
-      throw 'Failed to get a device'
-    }
 
     this.context.configure({
       device: this.device,
@@ -86,6 +81,25 @@ export class WGPU {
       group: 0,
       bindings: [sampler, outTexture.createView()]
     })
+
+    const renderPass = (commandEncoder: GPUCommandEncoder): GPURenderPassEncoder => {
+      const renderPass = commandEncoder.beginRenderPass({
+        colorAttachments: [
+          {
+            view: this.context.getCurrentTexture().createView(),
+            clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+            loadOp: 'clear',
+            storeOp: 'store'
+          }
+        ]
+      })
+      renderPass.setPipeline(this.renderContext.renderPipeline)
+      renderPass.setBindGroup(0, this.renderContext.planeBindGroup)
+      renderPass.draw(6, 1, 0, 0)
+      renderPass.end()
+      return renderPass
+    }
+    this.renderContext.renderPass = renderPass
   }
 
   /// /////////////////////////////////////
@@ -142,7 +156,7 @@ export class WGPU {
 
   /// /////////////////////////////////////
   // Set buffer data
-  setBufferData (buffer: GPUBuffer, data: ArrayBufferView) {
+  setBufferData (buffer: GPUBuffer, data: ArrayBufferView): void {
     const writeArray = new Uint8Array(buffer.getMappedRange())
     writeArray.set(data as any)
     buffer.unmap()
@@ -150,7 +164,7 @@ export class WGPU {
 
   /// /////////////////////////////////////
   // Create a compute pipeline given a WGSL file and entry function
-  createComputePipeline = async (module: GPUShaderModule, fn: string) => {
+  createComputePipeline = (module: GPUShaderModule, fn: string): GPUComputePipeline => {
     const computePipeline = this.device.createComputePipeline({
       layout: 'auto',
       compute: {
@@ -168,7 +182,13 @@ export class WGPU {
   createBindGroup = async (settings: BindGroupSettings): Promise<GPUBindGroup> => {
     this.device.pushErrorScope('validation')
 
-    const entries: GPUBindGroupEntry[] = settings.bindings.map((entry, i) => {
+    const entries: GPUBindGroupEntry[] = settings.bindings.filter((entry) => (
+      entry instanceof GPUBuffer ||
+      entry instanceof GPUTextureView ||
+      entry instanceof GPUTexture ||
+      entry instanceof GPUExternalTexture ||
+      entry instanceof GPUSampler
+    )).map((entry, i) => {
       let resource: GPUBindingResource
 
       if (entry instanceof GPUBuffer) {
@@ -177,23 +197,14 @@ export class WGPU {
           size: entry.size,
           offset: 0
         }
-      } else if (
-        entry instanceof GPUTextureView ||
-                entry instanceof GPUTexture ||
-                entry instanceof GPUExternalTexture ||
-                entry instanceof GPUSampler
-      ) {
-        resource = entry
       } else {
-        console.log('unhandled', entry)
-        return
+        resource = entry
       }
-
       return {
         binding: i,
         resource
       }
-    }).filter((e) => e !== undefined) as GPUBindGroupEntry[]
+    })
 
     const bg = this.device.createBindGroup({
       layout: settings.pipeline.getBindGroupLayout(settings.group),
@@ -205,13 +216,12 @@ export class WGPU {
       console.warn(error.message)
       throw new Error('Could not create bind group')
     }
-
     return bg
   }
 
   /// /////////////////////////////////////
   // render the texture to the canvas
-  dispatchRenderPass = async (commandEncoder: GPUCommandEncoder) => {
+  dispatchRenderPass = async (commandEncoder: GPUCommandEncoder): Promise<void> => {
     const renderPass = commandEncoder.beginRenderPass({
       colorAttachments: [
         {
@@ -230,7 +240,7 @@ export class WGPU {
 
   /// /////////////////////////////////////
   // dispatch a compute pass
-  dispatchComputePass = (settings: ComputePassSettings) => {
+  dispatchComputePass = (settings: ComputePassSettings): void => {
     const computePass = settings.encoder.beginComputePass()
     computePass.setPipeline(settings.pipeline)
     computePass.setBindGroup(0, settings.bindGroup)
@@ -255,4 +265,5 @@ interface ComputePassSettings {
 interface RenderContext {
   renderPipeline: GPURenderPipeline
   planeBindGroup: GPUBindGroup
+  renderPass: (commandEncoder: GPUCommandEncoder) => GPURenderPassEncoder
 }
