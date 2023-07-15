@@ -1,42 +1,41 @@
 
 export const load_file = async (path: string) => {
-    const response = await fetch(path);
-    if (response.ok) {
-        const content = await response.text();
-        return content;
-    } else {
-        throw new Error(`Error loading: ${path}`);
-    }
-};
+  const response = await fetch(path)
+  if (response.ok) {
+    const content = await response.text()
+    return content
+  } else {
+    throw new Error(`Error loading: ${path}`)
+  }
+}
 
 const createShaderModule = async (gpu: GPUDevice, file: string) => {
-    const code = await load_file(file);
-    if (!code) {
-        throw new Error(`Could not load ${file}`);
+  const code = await load_file(file)
+  if (!code) {
+    throw new Error(`Could not load ${file}`)
+  }
+  const module = gpu.createShaderModule({ code })
+  const info = await module.getCompilationInfo()
+  if (info.messages.length > 0) {
+    for (const message of info.messages) {
+      console.warn(`${message.message} 
+    at ${file} line ${message.lineNum}`)
     }
-    const module = gpu.createShaderModule({ code });
-    const info = await module.getCompilationInfo();
-    if (info.messages.length > 0) {
-        for (let message of info.messages) {
-            console.warn(`${message.message} 
-    at ${file} line ${message.lineNum}`);
-        }
-        throw new Error(`Could not compile ${file}`);
-    }
-    return module;
-};
+    throw new Error(`Could not compile ${file}`)
+  }
+  return module
+}
 
-let rp: (commandEncoder: GPUCommandEncoder) => void;
+let rp: (commandEncoder: GPUCommandEncoder) => void
 const render = async (gpu: GPUDevice, resolution: number, buffer: GPUBuffer, format: GPUTextureFormat, context: GPUCanvasContext, commandEncoder: GPUCommandEncoder) => {
+  if (rp) {
+    rp(commandEncoder)
+    return
+  }
 
-    if (rp) {
-        rp(commandEncoder);
-        return;
-    }
-
-    // shader will be generated once, then reused.
-    let textureShader = gpu.createShaderModule({
-        code: `
+  // shader will be generated once, then reused.
+  const textureShader = gpu.createShaderModule({
+    code: `
         @group(0) @binding(0)  
         var<storage, read_write> pixels : array<vec4f>;
   
@@ -78,62 +77,62 @@ const render = async (gpu: GPUDevice, resolution: number, buffer: GPUBuffer, for
           color = pixels[i32((UV.x * ${resolution}) + floor(UV.y * ${resolution}) * ${resolution})];
           return color;
         }
-      `,
-    });
+      `
+  })
 
-    const renderPipeline = gpu.createRenderPipeline({
-        layout: "auto",
-        vertex: {
-            module: textureShader,
-            entryPoint: "vert",
-        },
-        fragment: {
-            module: textureShader,
-            entryPoint: "frag",
-            targets: [
-                {
-                    format: format,
-                },
-            ],
-        },
-        primitive: {
-            topology: "triangle-list",
-        },
-    });
+  const renderPipeline = gpu.createRenderPipeline({
+    layout: 'auto',
+    vertex: {
+      module: textureShader,
+      entryPoint: 'vert'
+    },
+    fragment: {
+      module: textureShader,
+      entryPoint: 'frag',
+      targets: [
+        {
+          format
+        }
+      ]
+    },
+    primitive: {
+      topology: 'triangle-list'
+    }
+  })
 
-    const bindGroup = gpu.createBindGroup({
-        layout: renderPipeline.getBindGroupLayout(0),
-        entries: [
-            {
-                binding: 0,
-                resource: {
-                    buffer: buffer,
-                    offset: 0,
-                    size: resolution * resolution * 16,
-                },
-            },
-        ],
-    });
+  const bindGroup = gpu.createBindGroup({
+    layout: renderPipeline.getBindGroupLayout(0),
+    entries: [
+      {
+        binding: 0,
+        resource: {
+          buffer,
+          offset: 0,
+          size: resolution * resolution * 16
+        }
+      }
+    ]
+  })
 
-    rp = (commandEncoder: GPUCommandEncoder) => {
-        const renderPass = commandEncoder.beginRenderPass({
-            colorAttachments: [
-                {
-                    view: context.getCurrentTexture().createView(),
-                    clearValue: { r: 255.0, g: 255.0, b: 255.0, a: 1.0 },
-                    loadOp: "clear",
-                    storeOp: "store",
-                },
-            ],
-        });
-        renderPass.setPipeline(renderPipeline);
-        renderPass.setBindGroup(0, bindGroup);
+  rp = (commandEncoder: GPUCommandEncoder) => {
+    const renderPass = commandEncoder.beginRenderPass({
+      colorAttachments: [
+        {
+          view: context.getCurrentTexture().createView(),
+          clearValue: { r: 255.0, g: 255.0, b: 255.0, a: 1.0 },
+          loadOp: 'clear',
+          storeOp: 'store'
+        }
+      ]
+    })
+    renderPass.setPipeline(renderPipeline)
+    renderPass.setBindGroup(0, bindGroup)
 
-        renderPass.draw(6, 1, 0, 0);
-        renderPass.end();
-    };
+    renderPass.draw(6, 1, 0, 0)
+    renderPass.end()
+  }
 
-    rp(commandEncoder);
-};
+  rp(commandEncoder)
+}
 
-export { createShaderModule, render };
+export { createShaderModule, render }
