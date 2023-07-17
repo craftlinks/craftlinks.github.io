@@ -1,4 +1,4 @@
-@group(0) @binding(0) var sampler : sampler;
+@group(0) @binding(0) var sampl : sampler;
 @group(0) @binding(1) var texture : texture_2d<f32>;
       
 struct VertexOutput {
@@ -35,6 +35,6 @@ fn vert(@builtin(vertex_index) VertexIndex : u32) -> VertexOutput {
 
 @fragment
 fn frag(@location(0) UV : vec2f) -> @location(0) vec4f {
-    var color = textureSample(tex, samp, UV);
+    var color = textureSample(texture, sampl, UV);
     return color;
 }

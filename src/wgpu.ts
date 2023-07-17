@@ -4,41 +4,43 @@ export class WGPU {
   device!: GPUDevice
   context!: GPUCanvasContext
   swapChainFormat!: GPUTextureFormat
-  canvas: HTMLCanvasElement
+  canvas!: HTMLCanvasElement
   renderContext!: RenderContext
 
   /// /////////////////////////////////////
   // Initial setup of WebGPU
   constructor (width: number, height: number) {
-    // Create the canvas
-    this.canvas = document.createElement('canvas')
-    this.canvas.width = width
-    this.canvas.height = height
-    if (this.canvas == null) {
-      console.log('Failed to create canvas')
-      throw new Error('Failed to create canvas')
-    }
-    document.body.appendChild(this.canvas)
-
-    this.context = this.canvas.getContext('webgpu') as GPUCanvasContext
-    this.swapChainFormat = 'bgra8unorm'
-
     // Initialize webGPU
-    this.init().then(() => {
+    this.init(width, height).then(() => {
       console.log('WebGPU initialized.')
     }).catch((error) => {
       console.error('Error initializing WebGPU: ', error)
     })
   }
 
-  private async init (): Promise<void> {
+  private async init (width: number, height: number): Promise<void> {
+    if (navigator.gpu === undefined || navigator.gpu === null) {
+      throw new Error('WebGPU not supported')
+    }
     const adapter = await navigator.gpu.requestAdapter()
-    if (adapter == null) {
-      console.log('Failed to get an adapter')
-      throw new Error('Failed to get an adapter')
+    if (adapter === null) {
+      throw new Error("Couldn't request WebGPU adapter.")
     }
 
+    await this.showGPUInfo(adapter)
+
     this.device = await adapter.requestDevice()
+    // Create the canvas
+    this.canvas = document.createElement('canvas')
+    this.canvas.width = width
+    this.canvas.height = height
+    if (this.canvas == null) {
+      throw new Error('Failed to create canvas')
+    }
+    document.body.appendChild(this.canvas)
+
+    this.context = this.canvas.getContext('webgpu') as GPUCanvasContext
+    this.swapChainFormat = navigator.gpu.getPreferredCanvasFormat() // 'bgra8unorm'
 
     this.context.configure({
       device: this.device,
@@ -49,10 +51,11 @@ export class WGPU {
 
     const outTexture = this.createTexture()
 
-    const quadShader = await this.compileShader(
+    const quadShader = await this.createShaderModule(
       '../src/quad.wgsl'
     )
-    this.renderContext.renderPipeline = this.device.createRenderPipeline({
+
+    const renderPipeline = this.device.createRenderPipeline({
       layout: 'auto',
       vertex: {
         module: quadShader,
@@ -76,8 +79,8 @@ export class WGPU {
       magFilter: 'nearest',
       minFilter: 'nearest'
     })
-    this.renderContext.planeBindGroup = await this.createBindGroup({
-      pipeline: this.renderContext.renderPipeline,
+    const planeBindGroup = await this.createBindGroup({
+      pipeline: renderPipeline,
       group: 0,
       bindings: [sampler, outTexture.createView()]
     })
@@ -99,12 +102,34 @@ export class WGPU {
       renderPass.end()
       return renderPass
     }
-    this.renderContext.renderPass = renderPass
+
+    this.renderContext = {
+      renderPipeline,
+      planeBindGroup,
+      renderPass
+    }
+  }
+
+  private async showGPUInfo (adapter: GPUAdapter): Promise<void> {
+    const info: GPUAdapterInfo = await adapter.requestAdapterInfo()
+    console.log('GPU Information:')
+    console.log('Vendor: ', info.vendor)
+    console.log('Architecture: ', info.architecture)
+    console.log('Limits:')
+    let i: keyof GPUSupportedLimits
+    for (i in adapter.limits) {
+      console.log(' ', i, adapter.limits[i])
+    }
+
+    console.log('Features: ')
+    adapter.features.forEach((feature) => {
+      console.log(' ', feature)
+    })
   }
 
   /// /////////////////////////////////////
   // Compile a shader
-  async compileShader (file: string): Promise<GPUShaderModule> {
+  async createShaderModule (file: string): Promise<GPUShaderModule> {
     const code = await load_file(file)
 
     const shaderModule = this.device.createShaderModule({
@@ -125,19 +150,21 @@ export class WGPU {
 
   /// /////////////////////////////////////
   // Create a texture
-  createTexture (usage: GPUTextureUsageFlags =
-  GPUTextureUsage.COPY_DST |
-        GPUTextureUsage.COPY_SRC |
-        GPUTextureUsage.STORAGE_BINDING |
-        GPUTextureUsage.TEXTURE_BINDING |
-        GPUTextureUsage.RENDER_ATTACHMENT
+  createTexture (usage?: GPUTextureUsageFlags
   ): GPUTexture {
+    usage ||=
+      GPUTextureUsage.COPY_DST |
+      GPUTextureUsage.COPY_SRC |
+      GPUTextureUsage.STORAGE_BINDING |
+      GPUTextureUsage.TEXTURE_BINDING |
+      GPUTextureUsage.RENDER_ATTACHMENT
+
     const texture = this.device.createTexture({
       size: {
         width: this.canvas.width,
         height: this.canvas.height
       },
-      format: this.swapChainFormat,
+      format: 'rgba8unorm',
       usage
     })
     return texture
