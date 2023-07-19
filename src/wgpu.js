@@ -118,11 +118,11 @@ export class WGPU {
             layout: 'auto',
             vertex: {
                 module: quadShader,
-                entryPoint: 'vert'
+                entryPoint: 'vertexMain'
             },
             fragment: {
                 module: quadShader,
-                entryPoint: 'frag',
+                entryPoint: 'fragmentMain',
                 targets: [
                     {
                         format: this.swapChainFormat

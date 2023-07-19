@@ -7,7 +7,7 @@ struct VertexOutput {
 }
 
 @vertex
-fn vert(@builtin(vertex_index) VertexIndex : u32) -> VertexOutput {
+fn vertexMain(@builtin(vertex_index) VertexIndex : u32) -> VertexOutput {
 
     const pos = array(
         vec2( 1.0,  1.0),
@@ -34,7 +34,7 @@ fn vert(@builtin(vertex_index) VertexIndex : u32) -> VertexOutput {
 }
 
 @fragment
-fn frag(@location(0) UV : vec2f) -> @location(0) vec4f {
+fn fragmentMain(@location(0) UV : vec2f) -> @location(0) vec4f {
     var color = textureSample(texture, sampl, UV);
     return color;
 }
