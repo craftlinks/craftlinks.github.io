@@ -3,70 +3,61 @@ import { load_file } from './lib.js'
 export class WGPU {
   device!: GPUDevice
   context!: GPUCanvasContext
-  swapChainFormat!: GPUTextureFormat
+  canvasFormat!: GPUTextureFormat
   canvas!: HTMLCanvasElement
-  renderContext!: RenderContext
+  render!: () => void
 
   /// /////////////////////////////////////
   // Initial setup of WebGPU
-  constructor (width: number, height: number) {
-    // Initialize webGPU
-    this.init(width, height).then(() => {
-      console.log('WebGPU initialized.')
-    }).catch((error) => {
-      console.error('Error initializing WebGPU: ', error)
-    })
-  }
 
-  private async init (width: number, height: number): Promise<void> {
-    if (navigator.gpu === undefined || navigator.gpu === null) {
+  static async init (width: number, height: number): Promise<WGPU> {
+    const wgpu = new WGPU()
+    const adapter = await navigator.gpu?.requestAdapter()
+    const device = await adapter?.requestDevice()
+
+    if (adapter == null || device == null) {
       throw new Error('WebGPU not supported')
     }
-    const adapter = await navigator.gpu.requestAdapter()
-    if (adapter === null) {
-      throw new Error("Couldn't request WebGPU adapter.")
-    }
+    wgpu.device = device
 
-    await this.showGPUInfo(adapter)
+    await wgpu.showGPUInfo(adapter)
 
-    this.device = await adapter.requestDevice()
-    // Create the canvas
-    this.canvas = document.createElement('canvas')
-    this.canvas.width = width
-    this.canvas.height = height
-    if (this.canvas == null) {
+    wgpu.canvas = document.createElement('canvas')
+    if (wgpu.canvas == null) {
       throw new Error('Failed to create canvas')
     }
-    document.body.appendChild(this.canvas)
+    wgpu.canvas.width = width
+    wgpu.canvas.height = height
+    document.body.appendChild(wgpu.canvas)
+    wgpu.context = wgpu.canvas.getContext('webgpu') as GPUCanvasContext
+    wgpu.canvasFormat = navigator.gpu.getPreferredCanvasFormat() // 'bgra8unorm'
 
-    this.context = this.canvas.getContext('webgpu') as GPUCanvasContext
-    this.swapChainFormat = navigator.gpu.getPreferredCanvasFormat() // 'bgra8unorm'
-
-    this.context.configure({
-      device: this.device,
-      format: this.swapChainFormat,
+    wgpu.context.configure({
+      device: wgpu.device,
+      format: wgpu.canvasFormat,
       usage: GPUTextureUsage.RENDER_ATTACHMENT,
       alphaMode: 'premultiplied'
     })
 
-    const outTexture = this.createTexture()
+    const outTexture = wgpu.createTexture()
 
-    const quadShader = await this.createShaderModule(
-      '../src/quad.wgsl'
+    const quadShader = await wgpu.createShaderModule(
+      '../src/quad.wgsl', 'quad shader'
     )
 
-    const renderPipeline = this.device.createRenderPipeline({
+    const renderPipeline = wgpu.device.createRenderPipeline({
+      label: 'quad render pipeline',
       layout: 'auto',
       vertex: {
         module: quadShader,
-        entryPoint: 'vertexMain'
+        entryPoint: 'vs'
       },
       fragment: {
         module: quadShader,
-        entryPoint: 'fragmentMain',
+        entryPoint: 'fs',
         targets: [
           {
-            format: this.swapChainFormat
+            format: wgpu.canvasFormat // @location(0)
           }
         ]
       },
@@ -75,39 +66,40 @@ export class WGPU {
       }
     })
 
-    const sampler = this.device.createSampler({
+    const sampler = wgpu.device.createSampler({
       magFilter: 'nearest',
       minFilter: 'nearest'
     })
-    const planeBindGroup = await this.createBindGroup({
+
+    const planeBindGroup = await wgpu.createBindGroup({
       pipeline: renderPipeline,
       group: 0,
       bindings: [sampler, outTexture.createView()]
     })
 
-    const renderPass = (commandEncoder: GPUCommandEncoder): GPURenderPassEncoder => {
-      const renderPass = commandEncoder.beginRenderPass({
-        colorAttachments: [
+    wgpu.render = (): void => {
+      const encoder = wgpu.device.createCommandEncoder({ label: 'quad encoder' })
+      const renderPass = encoder.beginRenderPass({
+        label: 'quad shader render pass',
+        colorAttachments: [ // list of textures we are rendering to
           {
-            view: this.context.getCurrentTexture().createView(),
+            view: wgpu.context.getCurrentTexture().createView(), // canvas texture
             clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
             loadOp: 'clear',
             storeOp: 'store'
           }
         ]
       })
-      renderPass.setPipeline(this.renderContext.renderPipeline)
-      renderPass.setBindGroup(0, this.renderContext.planeBindGroup)
+      renderPass.setPipeline(renderPipeline)
+      renderPass.setBindGroup(0, planeBindGroup)
       renderPass.draw(6, 1, 0, 0)
       renderPass.end()
-      return renderPass
+
+      const commandBuffer = encoder.finish()
+      wgpu.device.queue.submit([commandBuffer])
     }
 
-    this.renderContext = {
-      renderPipeline,
-      planeBindGroup,
-      renderPass
-    }
+    return wgpu
   }
 
   private async showGPUInfo (adapter: GPUAdapter): Promise<void> {
@@ -129,10 +121,11 @@ export class WGPU {
 
   /// /////////////////////////////////////
   // Compile a shader
-  async createShaderModule (file: string): Promise<GPUShaderModule> {
+  async createShaderModule (file: string, label?: string): Promise<GPUShaderModule> {
     const code = await load_file(file)
 
     const shaderModule = this.device.createShaderModule({
+      label,
       code
     })
 
@@ -247,25 +240,6 @@ export class WGPU {
   }
 
   /// /////////////////////////////////////
-  // render the texture to the canvas
-  dispatchRenderPass = async (commandEncoder: GPUCommandEncoder): Promise<void> => {
-    const renderPass = commandEncoder.beginRenderPass({
-      colorAttachments: [
-        {
-          view: this.context.getCurrentTexture().createView(),
-          clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
-          loadOp: 'clear',
-          storeOp: 'store'
-        }
-      ]
-    })
-    renderPass.setPipeline(this.renderContext.renderPipeline)
-    renderPass.setBindGroup(0, this.renderContext.planeBindGroup)
-    renderPass.draw(6, 1, 0, 0)
-    renderPass.end()
-  }
-
-  /// /////////////////////////////////////
   // dispatch a compute pass
   dispatchComputePass = (settings: ComputePassSettings): void => {
     const computePass = settings.encoder.beginComputePass()
@@ -287,10 +261,4 @@ interface ComputePassSettings {
   bindGroup: GPUBindGroup
   workGroups: [number, number, number]
   encoder: GPUCommandEncoder
-}
-
-interface RenderContext {
-  renderPipeline: GPURenderPipeline
-  planeBindGroup: GPUBindGroup
-  renderPass: (commandEncoder: GPUCommandEncoder) => GPURenderPassEncoder
 }

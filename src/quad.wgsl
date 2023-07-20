@@ -2,12 +2,12 @@
 @group(0) @binding(1) var texture : texture_2d<f32>;
       
 struct VertexOutput {
-@builtin(position) Position : vec4f,
+@builtin(position) position : vec4f,
 @location(0) UV : vec2f,
 }
 
 @vertex
-fn vertexMain(@builtin(vertex_index) VertexIndex : u32) -> VertexOutput {
+fn vs(@builtin(vertex_index) vertexIndex : u32) -> VertexOutput {
 
     const pos = array(
         vec2( 1.0,  1.0),
@@ -28,13 +28,13 @@ fn vertexMain(@builtin(vertex_index) VertexIndex : u32) -> VertexOutput {
     );
 
     var output : VertexOutput;
-    output.Position = vec4(pos[VertexIndex], 0.0, 1.0);
-    output.UV = uv[VertexIndex];
+    output.position = vec4f(pos[ vertexIndex], 0.0, 1.0);
+    output.UV = uv[ vertexIndex];
     return output;
 }
 
 @fragment
-fn fragmentMain(@location(0) UV : vec2f) -> @location(0) vec4f {
+fn fs(@location(0) UV : vec2f) -> @location(0) vec4f {
     var color = textureSample(texture, sampl, UV);
     return color;
 }

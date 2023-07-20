@@ -1,8 +1,6 @@
 import { load_file } from './lib.js';
 export class WGPU {
-    /// /////////////////////////////////////
-    // Initial setup of WebGPU
-    constructor(width, height) {
+    constructor() {
         /// /////////////////////////////////////
         // Create a compute pipeline given a WGSL file and entry function
         this.createComputePipeline = (module, fn) => {
@@ -53,24 +51,6 @@ export class WGPU {
             return bg;
         };
         /// /////////////////////////////////////
-        // render the texture to the canvas
-        this.dispatchRenderPass = async (commandEncoder) => {
-            const renderPass = commandEncoder.beginRenderPass({
-                colorAttachments: [
-                    {
-                        view: this.context.getCurrentTexture().createView(),
-                        clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
-                        loadOp: 'clear',
-                        storeOp: 'store'
-                    }
-                ]
-            });
-            renderPass.setPipeline(this.renderContext.renderPipeline);
-            renderPass.setBindGroup(0, this.renderContext.planeBindGroup);
-            renderPass.draw(6, 1, 0, 0);
-            renderPass.end();
-        };
-        /// /////////////////////////////////////
         // dispatch a compute pass
         this.dispatchComputePass = (settings) => {
             const computePass = settings.encoder.beginComputePass();
@@ -79,53 +59,48 @@ export class WGPU {
             computePass.dispatchWorkgroups(...settings.workGroups);
             computePass.end();
         };
-        // Initialize webGPU
-        this.init(width, height).then(() => {
-            console.log('WebGPU initialized.');
-        }).catch((error) => {
-            console.error('Error initializing WebGPU: ', error);
-        });
     }
-    async init(width, height) {
-        if (navigator.gpu === undefined || navigator.gpu === null) {
+    /// /////////////////////////////////////
+    // Initial setup of WebGPU
+    static async init(width, height) {
+        const wgpu = new WGPU();
+        const adapter = await navigator.gpu?.requestAdapter();
+        const device = await adapter?.requestDevice();
+        if (adapter == null || device == null) {
             throw new Error('WebGPU not supported');
         }
-        const adapter = await navigator.gpu.requestAdapter();
-        if (adapter === null) {
-            throw new Error("Couldn't request WebGPU adapter.");
-        }
-        await this.showGPUInfo(adapter);
-        this.device = await adapter.requestDevice();
-        // Create the canvas
-        this.canvas = document.createElement('canvas');
-        this.canvas.width = width;
-        this.canvas.height = height;
-        if (this.canvas == null) {
+        wgpu.device = device;
+        await wgpu.showGPUInfo(adapter);
+        wgpu.canvas = document.createElement('canvas');
+        if (wgpu.canvas == null) {
             throw new Error('Failed to create canvas');
         }
-        document.body.appendChild(this.canvas);
-        this.context = this.canvas.getContext('webgpu');
-        this.swapChainFormat = navigator.gpu.getPreferredCanvasFormat(); // 'bgra8unorm'
-        this.context.configure({
-            device: this.device,
-            format: this.swapChainFormat,
+        wgpu.canvas.width = width;
+        wgpu.canvas.height = height;
+        document.body.appendChild(wgpu.canvas);
+        wgpu.context = wgpu.canvas.getContext('webgpu');
+        wgpu.canvasFormat = navigator.gpu.getPreferredCanvasFormat(); // 'bgra8unorm'
+        wgpu.context.configure({
+            device: wgpu.device,
+            format: wgpu.canvasFormat,
             usage: GPUTextureUsage.RENDER_ATTACHMENT,
             alphaMode: 'premultiplied'
         });
-        const outTexture = this.createTexture();
-        const quadShader = await this.createShaderModule('../src/quad.wgsl');
-        const renderPipeline = this.device.createRenderPipeline({
+        const outTexture = wgpu.createTexture();
+        const quadShader = await wgpu.createShaderModule('../src/quad.wgsl', 'quad shader');
+        const renderPipeline = wgpu.device.createRenderPipeline({
+            label: 'quad render pipeline',
             layout: 'auto',
             vertex: {
                 module: quadShader,
-                entryPoint: 'vertexMain'
+                entryPoint: 'vs'
             },
             fragment: {
                 module: quadShader,
-                entryPoint: 'fragmentMain',
+                entryPoint: 'fs',
                 targets: [
                     {
-                        format: this.swapChainFormat
+                        format: wgpu.canvasFormat // @location(0)
                     }
                 ]
             },
@@ -133,37 +108,36 @@ export class WGPU {
                 topology: 'triangle-list'
             }
         });
-        const sampler = this.device.createSampler({
+        const sampler = wgpu.device.createSampler({
             magFilter: 'nearest',
             minFilter: 'nearest'
         });
-        const planeBindGroup = await this.createBindGroup({
+        const planeBindGroup = await wgpu.createBindGroup({
             pipeline: renderPipeline,
             group: 0,
             bindings: [sampler, outTexture.createView()]
         });
-        const renderPass = (commandEncoder) => {
-            const renderPass = commandEncoder.beginRenderPass({
+        wgpu.render = () => {
+            const encoder = wgpu.device.createCommandEncoder({ label: 'quad encoder' });
+            const renderPass = encoder.beginRenderPass({
+                label: 'quad shader render pass',
                 colorAttachments: [
                     {
-                        view: this.context.getCurrentTexture().createView(),
+                        view: wgpu.context.getCurrentTexture().createView(),
                         clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
                         loadOp: 'clear',
                         storeOp: 'store'
                     }
                 ]
             });
-            renderPass.setPipeline(this.renderContext.renderPipeline);
-            renderPass.setBindGroup(0, this.renderContext.planeBindGroup);
+            renderPass.setPipeline(renderPipeline);
+            renderPass.setBindGroup(0, planeBindGroup);
             renderPass.draw(6, 1, 0, 0);
             renderPass.end();
-            return renderPass;
+            const commandBuffer = encoder.finish();
+            wgpu.device.queue.submit([commandBuffer]);
         };
-        this.renderContext = {
-            renderPipeline,
-            planeBindGroup,
-            renderPass
-        };
+        return wgpu;
     }
     async showGPUInfo(adapter) {
         const info = await adapter.requestAdapterInfo();
@@ -182,9 +156,10 @@ export class WGPU {
     }
     /// /////////////////////////////////////
     // Compile a shader
-    async createShaderModule(file) {
+    async createShaderModule(file, label) {
         const code = await load_file(file);
         const shaderModule = this.device.createShaderModule({
+            label,
             code
         });
         const compilationInfo = await shaderModule.getCompilationInfo();
