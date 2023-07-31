@@ -1,4 +1,4 @@
-import { createShaderModule, render } from '../lib'
+import { createShaderModule, render } from '../lib.js'
 
 /// //////////////////////////////////////////////////////
 // GPU and CPU Settings
@@ -40,8 +40,8 @@ const settings: Settings = {
   xMinYmin: new Float32Array([xmin, ymin])
 }
 
-console.log('dxdy: ' + settings.dxdy)
-console.log('xMinYmin: ' + settings.xMinYmin)
+console.log(`dxdy: ${settings.dxdy.toString()}`)
+console.log(`xMinYmin: ${settings.xMinYmin.toString()}`)
 console.log(settings.dxdy[0] * uniforms.rez)
 console.log(settings.dxdy[1] * uniforms.rez)
 console.log(settings.xMinYmin[0] + settings.dxdy[0] * uniforms.rez)
@@ -49,7 +49,7 @@ console.log(settings.xMinYmin[1] + settings.dxdy[1] * uniforms.rez)
 
 /// //////////////////////////////////////////////////////
 // Main
-async function main () {
+async function main (): Promise<void> {
   /// ////////////////////
   // Initial setup
   const adapter = await navigator.gpu.requestAdapter()
@@ -189,7 +189,7 @@ async function main () {
 
   /// //////////////////////
   // RUN the reset shader function
-  const reset = () => {
+  const reset = (): void => {
     const encoder = gpu.createCommandEncoder()
     const pass = encoder.beginComputePass()
     pass.setPipeline(resetPipeline)
@@ -211,8 +211,8 @@ async function main () {
 
   /// //////////////////////
   // RUN the sim compute function and render pixels
-  const draw = () => {
-    const run = () => {
+  const draw = (): void => {
+    const run = (): void => {
       gpu.queue.writeBuffer(
         mouseBuffer,
         0,
@@ -233,7 +233,7 @@ async function main () {
       pass.end()
 
       // Render the pixels buffer to the canvas
-      render(gpu, uniforms.rez, pixelBuffer, format, context, encoder)
+      void render(gpu, uniforms.rez, pixelBuffer, format, context, encoder)
 
       gpu.queue.submit([encoder.finish()])
     }
@@ -243,4 +243,4 @@ async function main () {
   draw()
 }
 
-main()
+void main()

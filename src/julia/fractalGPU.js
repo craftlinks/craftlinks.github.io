@@ -1,4 +1,4 @@
-import { createShaderModule, render } from '../lib';
+import { createShaderModule, render } from '../lib.js';
 /// //////////////////////////////////////////////////////
 // GPU and CPU Settings
 const xmin = -1.5;
@@ -25,8 +25,8 @@ const settings = {
     dxdy: new Float32Array([(xmax - xmin) / uniforms.rez, (ymax - ymin) / uniforms.rez]),
     xMinYmin: new Float32Array([xmin, ymin])
 };
-console.log('dxdy: ' + settings.dxdy);
-console.log('xMinYmin: ' + settings.xMinYmin);
+console.log(`dxdy: ${settings.dxdy.toString()}`);
+console.log(`xMinYmin: ${settings.xMinYmin.toString()}`);
 console.log(settings.dxdy[0] * uniforms.rez);
 console.log(settings.dxdy[1] * uniforms.rez);
 console.log(settings.xMinYmin[0] + settings.dxdy[0] * uniforms.rez);
@@ -190,7 +190,7 @@ async function main() {
             pass.dispatchWorkgroups(settings.pixelWorkgroups);
             pass.end();
             // Render the pixels buffer to the canvas
-            render(gpu, uniforms.rez, pixelBuffer, format, context, encoder);
+            void render(gpu, uniforms.rez, pixelBuffer, format, context, encoder);
             gpu.queue.submit([encoder.finish()]);
         };
         run();
@@ -198,4 +198,4 @@ async function main() {
     };
     draw();
 }
-main();
+void main();
