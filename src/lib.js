@@ -1,27 +1,22 @@
-const load = async (path) => {
-    try {
-        const response = await fetch(path);
-        if (response.ok) {
-            const content = await response.text();
-            return content;
-        }
-        else {
-            throw new Error(`Error loading: ${path}`);
-        }
+export const load_file = async (path) => {
+    const response = await fetch(path);
+    if (response.ok) {
+        const content = await response.text();
+        return content;
     }
-    catch (error) {
-        console.error(error);
+    else {
+        throw new Error(`Error loading: ${path}`);
     }
 };
 const createShaderModule = async (gpu, file) => {
-    const code = await load(file);
+    const code = await load_file(file);
     if (!code) {
         throw new Error(`Could not load ${file}`);
     }
     const module = gpu.createShaderModule({ code });
     const info = await module.getCompilationInfo();
     if (info.messages.length > 0) {
-        for (let message of info.messages) {
+        for (const message of info.messages) {
             console.warn(`${message.message} 
     at ${file} line ${message.lineNum}`);
         }
@@ -36,7 +31,7 @@ const render = async (gpu, resolution, buffer, format, context, commandEncoder) 
         return;
     }
     // shader will be generated once, then reused.
-    let textureShader = gpu.createShaderModule({
+    const textureShader = gpu.createShaderModule({
         code: `
         @group(0) @binding(0)  
         var<storage, read_write> pixels : array<vec4f>;
@@ -79,26 +74,26 @@ const render = async (gpu, resolution, buffer, format, context, commandEncoder) 
           color = pixels[i32((UV.x * ${resolution}) + floor(UV.y * ${resolution}) * ${resolution})];
           return color;
         }
-      `,
+      `
     });
     const renderPipeline = gpu.createRenderPipeline({
-        layout: "auto",
+        layout: 'auto',
         vertex: {
             module: textureShader,
-            entryPoint: "vert",
+            entryPoint: 'vert'
         },
         fragment: {
             module: textureShader,
-            entryPoint: "frag",
+            entryPoint: 'frag',
             targets: [
                 {
-                    format: format,
-                },
-            ],
+                    format
+                }
+            ]
         },
         primitive: {
-            topology: "triangle-list",
-        },
+            topology: 'triangle-list'
+        }
     });
     const bindGroup = gpu.createBindGroup({
         layout: renderPipeline.getBindGroupLayout(0),
@@ -106,12 +101,12 @@ const render = async (gpu, resolution, buffer, format, context, commandEncoder) 
             {
                 binding: 0,
                 resource: {
-                    buffer: buffer,
+                    buffer,
                     offset: 0,
-                    size: resolution * resolution * 16,
-                },
-            },
-        ],
+                    size: resolution * resolution * 16
+                }
+            }
+        ]
     });
     rp = (commandEncoder) => {
         const renderPass = commandEncoder.beginRenderPass({
@@ -119,10 +114,10 @@ const render = async (gpu, resolution, buffer, format, context, commandEncoder) 
                 {
                     view: context.getCurrentTexture().createView(),
                     clearValue: { r: 255.0, g: 255.0, b: 255.0, a: 1.0 },
-                    loadOp: "clear",
-                    storeOp: "store",
-                },
-            ],
+                    loadOp: 'clear',
+                    storeOp: 'store'
+                }
+            ]
         });
         renderPass.setPipeline(renderPipeline);
         renderPass.setBindGroup(0, bindGroup);
