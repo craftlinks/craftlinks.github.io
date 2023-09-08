@@ -62,7 +62,7 @@ export class WGPU {
     }
     /// /////////////////////////////////////
     // Initial setup of WebGPU
-    static async init(width, height) {
+    static async init() {
         const wgpu = new WGPU();
         const adapter = await navigator.gpu?.requestAdapter();
         const device = await adapter?.requestDevice();
@@ -75,8 +75,7 @@ export class WGPU {
         if (wgpu.canvas == null) {
             throw new Error('Failed to create canvas');
         }
-        wgpu.canvas.width = width;
-        wgpu.canvas.height = height;
+        wgpu.canvas.width = wgpu.canvas.height = 0.85 * Math.min(window.innerHeight, window.innerWidth);
         document.body.appendChild(wgpu.canvas);
         wgpu.context = wgpu.canvas.getContext('webgpu');
         wgpu.canvasFormat = navigator.gpu.getPreferredCanvasFormat(); // 'bgra8unorm'

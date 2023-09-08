@@ -20,5 +20,6 @@ function navigationButtons() {
     return `<a href = "${baseURL}/pages/julia.html" class="button">Julia</a>
     <a href = "${baseURL}/pages/predator-prey.html" class="button">Predator-prey</a>
     <a href = "${baseURL}/pages/pps.html" class="button">Primordial Particle System</a>
-    <a href = "${baseURL}/pages/particle-life.html" class="button">Particle Life</a>`;
+    <a href = "${baseURL}/pages/particle-life.html" class="button">Particle Life</a>
+    <a href = "${baseURL}/pages/default.html" class="button">Default</a>`;
 }

@@ -24,7 +24,7 @@ const settings = {
     pixelWorkgroups: Math.ceil(uniforms.rez ** 2 / sizes.workGroupSize),
     agentWorkgroups: Math.ceil(uniforms.count / sizes.workGroupSize)
 };
-/// //////////////////////////////////////////////////////
+/// ///////////////////////////////////////////////////////
 // Main
 async function main() {
     /// ////////////////////
