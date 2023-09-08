@@ -17,7 +17,7 @@ async function main (): Promise<void> {
   const glsl = SwissGL(canvas)
   glsl.loop(({ time }: { time: number }) => {
     // glsl.adjustCanvas()
-    const tex = glsl({ time, FP: 'int((float(I.y^I.x)*(cos(time)*0.076))) & int((float(I.x&I.y)))' }, { scale: 1 / 4, tag: 'tmp' })
+    const tex = glsl({ time, FP: 'sin(time*0.001*(float(I.y^I.x))), cos(time*0.001*(float(I.y^I.x))), sin(time*0.5), .5' }, { scale: 1 / 1, tag: 'tmp' })
     glsl({ tex, FP: 'tex(abs(XY))' })
   })
 }
