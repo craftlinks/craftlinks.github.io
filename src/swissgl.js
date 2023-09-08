@@ -731,3 +731,4 @@ function SwissGL(canvas_gl) {
 }
 
 self._SwissGL = SwissGL;
+export default SwissGL;
