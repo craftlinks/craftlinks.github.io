@@ -1,4 +1,4 @@
-import { SwissGL } from '../swissgl.js';
+import SwissGL from '../swissgl.js';
 const uniforms = {
     rez: 1024,
     time: 0,
