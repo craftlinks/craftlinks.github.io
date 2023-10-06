@@ -56,6 +56,7 @@ const TextureFormats = {};
         ['r16f', GL.R16F, GL.RED, GL.HALF_FLOAT, Uint16Array, 1],
         ['rgba16f', GL.RGBA16F, GL.RGBA, GL.HALF_FLOAT, Uint16Array, 4],
         ['r32f', GL.R32F, GL.RED, GL.FLOAT, Float32Array, 1],
+        ['rg32f', GL.RG32F, GL.RG, GL.FLOAT, Float32Array, 2],
         ['rgba32f', GL.RGBA32F, GL.RGBA, GL.FLOAT, Float32Array, 4],
         ['depth', GL.DEPTH_COMPONENT24, GL.DEPTH_COMPONENT, GL.UNSIGNED_INT, Uint32Array, 1],
     ]) TextureFormats[name] = {internalFormat, glformat, type, CpuArray, chn};
@@ -153,8 +154,7 @@ function compileProgram(gl, vs, fs) {
             gl.uniform1i(loc, unit);
             program.setters[name] = tex=>{
                 gl.activeTexture(gl.TEXTURE0+unit);
-                gl.bindTexture(target, tex?tex.handle:null);
-                if (tex) gl.bindSampler(unit, tex._sampler);
+                tex ? tex.bindSampler(unit) : gl.bindTexture(target, null);
             }
         } else {
             const fname = Type2Setter[info.type];
@@ -292,7 +292,9 @@ function guessUniforms(params) {
             vec${D}  ${name}_step() {return 1.0/vec${D}(${name}_size());}`;
         } else if (typeof v === 'number') {
             s=`uniform float ${name};`
-        } else  if (v.length in len2type) {
+        } else if (typeof v === 'boolean') {
+            s=`uniform bool ${name};`
+        } else if (v.length in len2type) {
             s=`uniform ${len2type[v.length]} ${name};`
         }
         if (s) uni.push(s);
@@ -374,11 +376,12 @@ function linkShader(gl, uniforms, Inc, VP, FP) {
 
 class TextureSampler {
     fork(updates) {
-        const {gl, handle, layern, filter, wrap} = {...this, ...updates};
-        return updateObject(new TextureSampler(), {gl, handle, layern, filter, wrap});
+        const {gl, handle, gltarget, layern, filter, wrap} = {...this, ...updates};
+        return updateObject(new TextureSampler(), {gl, handle, gltarget, layern, filter, wrap});
     }
     get linear()  {return this.fork({filter:'linear'})}
     get nearest() {return this.fork({filter:'nearest'})}
+    get miplinear() {return this.fork({filter:'miplinear'})}
     get edge()    {return this.fork({wrap:'edge'})}
     get repeat()  {return this.fork({wrap:'repeat'})}
     get mirror()  {return this.fork({wrap:'mirror'})}
@@ -388,18 +391,29 @@ class TextureSampler {
         if (!gl._samplers) {gl._samplers = {};}
         const id = `${filter}:${wrap}`;
         if (!(id in gl._samplers)) {
-            const glfilter = { 'nearest': gl.NEAREST, 'linear': gl.LINEAR}[filter];
+            const glfilter = { 'nearest': gl.NEAREST, 'linear': gl.LINEAR,
+                'miplinear':gl.LINEAR_MIPMAP_LINEAR}[filter];
             const glwrap = {'repeat': gl.REPEAT, 'edge': gl.CLAMP_TO_EDGE,
                             'mirror': gl.MIRRORED_REPEAT}[wrap];
             const sampler = gl.createSampler();
             const setf = (k, v)=>gl.samplerParameteri(sampler, gl['TEXTURE_'+k], v);
             setf('MIN_FILTER', glfilter);
-            setf('MAG_FILTER', glfilter);
+            setf('MAG_FILTER', filter=='miplinear' ? gl.LINEAR : glfilter);
             setf('WRAP_S', glwrap);
             setf('WRAP_T', glwrap);
             gl._samplers[id] = sampler;
         }
         return gl._samplers[id];
+    }
+    bindSampler(unit) {
+        // assume unit is already active
+        const {gl, gltarget, handle} = this;
+        gl.bindTexture(gltarget, handle);
+        if (this.filter == 'miplinear' && !handle.hasMipmap) {
+            gl.generateMipmap(gltarget)
+            handle.hasMipmap = true;
+        }
+        gl.bindSampler(unit, this._sampler);
     }
 }
 
@@ -418,7 +432,7 @@ class TextureTarget extends TextureSampler {
         this.filter = format=='depth' ? 'nearest' : filter;
         this.gltarget = layern ? gl.TEXTURE_2D_ARRAY : gl.TEXTURE_2D;
         this.formatInfo = TextureFormats[format];
-        updateObject(this, {gl, tag, format, layern, wrap, depth});
+        updateObject(this, {gl, _tag:tag, format, layern, wrap, depth});
         this.update(size, data);
     }
     update(size, data) {
@@ -439,30 +453,122 @@ class TextureTarget extends TextureSampler {
         this.size = size;
         if (this.depth) {this.depth.update(size, data);}
     }
-    readSync(...arg) {
-        const {gl} = this;
-        const {chn, glformat, type, CpuArray} = this.formatInfo;
-        const [x, y, w, h] = arg.length ? arg : [0, 0, ...this.size];
-        const n = w*h*chn;
-        if (!this.cpu || this.cpu.length < n) {
-            this.cpu = new CpuArray(n);
+    attach(gl) {
+        if (!this.layern) {
+            const attachment = this.format == 'depth' ? gl.DEPTH_ATTACHMENT : gl.COLOR_ATTACHMENT0;
+            gl.framebufferTexture2D(
+                gl.FRAMEBUFFER, attachment, gl.TEXTURE_2D, this.handle, 0/*level*/);
+        } else {
+            const drawBuffers = [];
+            for (let i=0; i<this.layern; ++i) {
+                const attachment = gl.COLOR_ATTACHMENT0+i;
+                drawBuffers.push(attachment);
+                gl.framebufferTextureLayer(
+                    gl.FRAMEBUFFER, attachment, this.handle, 0/*level*/, i);
+            }
+            gl.drawBuffers(drawBuffers);
         }
-        const buf = this.cpu;
-        bindTarget(gl, this);
-        gl.readPixels(x, y, w, h, glformat, type, buf);
-        return (buf.length == n) ? buf : buf.subarray(0, n);
+    }
+    bind(gl, readonly=false) {
+        if (this.fbo) {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo);
+        } else {
+            this.fbo = gl.createFramebuffer();
+            gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo);
+            this.attach(gl)
+            if (this.depth) this.depth.attach(gl);
+        }
+        if (!readonly) {this.handle.hasMipmap = false;}
+        return this.size;
+    }
+    _getBox(box) {
+        box = (box && box.length) ? box : [0, 0, ...this.size];
+        const [x, y, w, h] = box, n = w*h*this.formatInfo.chn;
+        return {box, n}
+    }
+    _getCPUBuf(n) {
+        if (!this.cpu || this.cpu.length < n) {
+            this.cpu = new this.formatInfo.CpuArray(n);
+        }
+        return this.cpu.length == n ? this.cpu : this.cpu.subarray(0, n);
+    }
+    _readPixels(box, targetBuf) {
+        const {glformat, type} = this.formatInfo;
+        this.bind(this.gl, /*readonly*/true);
+        this.gl.readPixels(...box, glformat, type, targetBuf);
+    }
+    readSync(...optBox) {
+        const {box, n} = this._getBox(optBox);
+        const buf = this._getCPUBuf(n);
+        this._readPixels(box, buf);
+        return buf
+    }
+    _bindAsyncBuffer(n) {
+        const {gl} = this;
+        const {CpuArray} = this.formatInfo;
+        if (!this.async) {this.async = {all:new Set(), queue:[]};}
+        if (this.async.queue.length == 0) {
+            const gpuBuf = gl.createBuffer();
+            this.async.queue.push(gpuBuf);
+            this.async.all.add(gpuBuf);
+        }
+        const gpuBuf = this.async.queue.shift();
+        if (this.async.queue.length > 2) {
+            this._deleteAsyncBuf(this.async.queue.pop());
+        }
+        gl.bindBuffer(gl.PIXEL_PACK_BUFFER, gpuBuf);
+        if (!gpuBuf.length || gpuBuf.length < n) {
+            const byteN = n * this.formatInfo.CpuArray.BYTES_PER_ELEMENT
+            gl.bufferData(gl.PIXEL_PACK_BUFFER, byteN, gl.STREAM_READ);
+            gpuBuf.length = n;
+            console.log(`created/resized async gpu buffer "${this._tag}":`, gpuBuf);
+        }
+        return gpuBuf;
+    }
+    _deleteAsyncBuf(gpuBuf) {
+        delete gpuBuf.length;
+        this.gl.deleteBuffer(gpuBuf);
+        this.async.all.delete(gpuBuf);
+    }
+    // https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/WebGL_best_practices#use_non-blocking_async_data_readback
+    read(callback, optBox, optTarget) {
+        const {gl} = this;
+        const {box, n} = this._getBox(optBox);
+        const gpuBuf = this._bindAsyncBuffer(n);
+        this._readPixels(box, 0);
+        gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
+        const sync = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+        gl.flush();
+        this._asyncFetch(gpuBuf, sync, callback, optTarget);
+    }
+    _asyncFetch(gpuBuf, sync, callback, optTarget) {
+        const {gl} = this;
+        if (!gpuBuf.length) {  // check that gpu buffer is not deleted
+            gl.deleteSync(sync); return;
+        }
+        const res = gl.clientWaitSync(sync, 0, 0);
+        if (res === gl.TIMEOUT_EXPIRED) { 
+            setTimeout(()=>this._asyncFetch(gpuBuf, sync, callback, optTarget), 1 /*ms*/); return; }            
+        if (res === gl.WAIT_FAILED) {
+            console.log(`async read of ${this._tag} failed`);
+        } else {
+            gl.bindBuffer(gl.PIXEL_PACK_BUFFER, gpuBuf);
+            const target = optTarget || this._getCPUBuf(gpuBuf.length);
+            gl.getBufferSubData(gl.PIXEL_PACK_BUFFER,  0 /*srcOffset*/,
+                target, 0 /*dstOffset*/, gpuBuf.length /*length*/);
+            gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
+            callback(target);
+        }
+        gl.deleteSync(sync);
+        this.async.queue.push(gpuBuf);
     }
     free() {
         const gl = this.gl;
         if (this.depth) this.depth.free();
         if (this.fbo) gl.deleteFramebuffer(this.fbo);
+        if (this.async) this.async.all.forEach(buf=>this._deleteAsyncBuf(buf));
         gl.deleteTexture(this.handle);
     }
-}
-
-function createTarget(gl, params) {
-    if (!params.story) return new TextureTarget(gl, params);
-    return Array(params.story).fill(0).map(_=>new TextureTarget(gl, params));
 }
 
 function calcAspect(aspect, w, h) {
@@ -512,68 +618,46 @@ function ensureVertexArray(gl, neededSize) {
     console.log('created:', va);
 }
 
-function isTargetSpec(target) {
-    return !(!target ||  // canvas
-        (target instanceof TextureTarget) || Array.isArray(target) || (target.fbo !== undefined));
-}
-
-function getTargetSize(gl, {size, scale=1}) {
+function getTargetSize(gl, {size, scale=1, data}) {
+    if (!size && (data && data.videoWidth && data.videoHeight)) {
+        size = [data.videoWidth, data.videoHeight];
+    }
     size = size || [gl.canvas.width, gl.canvas.height];
     return [Math.ceil(size[0]*scale), Math.ceil(size[1]*scale)];
 }
 
+function createTarget(gl, params) {
+    if (!params.story) return new TextureTarget(gl, params);
+    return Array(params.story).fill(0).map(_=>new TextureTarget(gl, params));
+}
 function prepareOwnTarget(self, spec) {
-    if (!spec.tag) {
-        throw 'target must have a tag';
-    }
     const buffers = self.buffers;
     spec.size = getTargetSize(self.gl, spec);
     if (!buffers[spec.tag]) {
         const target = buffers[spec.tag] = createTarget(self.gl, spec);
         console.log('created', target);
-    } else {
-        const target = buffers[spec.tag];
-        const tex = Array.isArray(target) ? target[target.length-1] : target;
-        const needResize = tex.size[0] != spec.size[0] || tex.size[1] != spec.size[1];
-        if (needResize || spec.data) {
-            if (needResize) {
-                console.log(`resized tex (${tex.size})->(${spec.size})`);
-            }
-            tex.update(spec.size, spec.data);
+    } 
+    const target = buffers[spec.tag];
+    const tex = Array.isArray(target) ? target[target.length-1] : target;
+    const needResize = tex.size[0] != spec.size[0] || tex.size[1] != spec.size[1];
+    if (needResize || spec.data) {
+        if (needResize) {
+            console.log(`resizing "${spec.tag}" (${tex.size})->(${spec.size})`);
         }
+        tex.update(spec.size, spec.data);
     }
     return buffers[spec.tag];
 }
 
-function attachTex(gl, tex) {
-    if (!tex.layern) {
-        const attachment = tex.format == 'depth' ? gl.DEPTH_ATTACHMENT : gl.COLOR_ATTACHMENT0;
-        gl.framebufferTexture2D(
-            gl.FRAMEBUFFER, attachment, gl.TEXTURE_2D, tex.handle, 0/*level*/);
-    } else {
-        const drawBuffers = [];
-        for (let i=0; i<tex.layern; ++i) {
-            const attachment = gl.COLOR_ATTACHMENT0+i;
-            drawBuffers.push(attachment);
-            gl.framebufferTextureLayer(
-                gl.FRAMEBUFFER, attachment, tex.handle, 0/*level*/, i);
-        }
-        gl.drawBuffers(drawBuffers);
+function bindTarget(gl, target) {
+    if (!target) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        return [gl.canvas.width, gl.canvas.height];
     }
-}
-
-function bindTarget(gl, tex) {
-    if (tex && (tex.fbo===undefined)) {
-        tex.fbo = gl.createFramebuffer();
-        gl.bindFramebuffer(gl.FRAMEBUFFER, tex.fbo);
-        attachTex(gl, tex);
-        if (tex.depth) attachTex(gl, tex.depth);
-    } else {
-        const fbo = tex ? tex.fbo : null;
-        gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-
+    if (Array.isArray(target)) {
+        target.unshift(target = target.pop());
     }
-    return tex ? tex.size : [gl.canvas.width, gl.canvas.height];
+    return target.bind(gl)
 }
 
 const OptNames = new Set([
@@ -587,26 +671,21 @@ function drawQuads(self, params, target) {
         (OptNames.has(p)?options:uniforms)[p] = params[p];
     }
     const [Inc, VP, FP] = [options.Inc||'', options.VP||'', options.FP||''];
-    const emptyShader = !VP && !FP;
-    const shaderID = Inc+VP+FP;
+    const noShader = !VP && !FP;
+    const noDraw = (options.Clear === undefined) && noShader;
 
     // setup target
-    if (isTargetSpec(target)) {
+    if (target && target.tag) {
         target = prepareOwnTarget(self, target);
+        if (noDraw) return target;
     }
-    let targetTexture = target;
     if (Array.isArray(target)) {
         uniforms.Src = uniforms.Src || target[0];
-        target.unshift(target.pop());
-        targetTexture = target[0];
     }
 
     // bind (and clear) target
-    if (options.Clear === undefined && emptyShader) {
-        return target;
-    }
     const gl = self.gl;
-    const targetSize = bindTarget(gl, targetTexture);
+    const targetSize = bindTarget(gl, target);
     let view = options.View || [0, 0, targetSize[0], targetSize[1]];
     if (view.length == 2) {
         view = [0, 0, view[0], view[1]]
@@ -625,9 +704,10 @@ function drawQuads(self, params, target) {
     }
 
     // setup program
-    if (emptyShader) {
+    if (noShader) {
         return target;
     }
+    const shaderID = Inc+VP+FP;
     if (!(shaderID in self.shaders)) {
         self.shaders[shaderID] = linkShader(gl, uniforms, Inc, VP, FP);
     }
@@ -670,10 +750,7 @@ function drawQuads(self, params, target) {
     gl.bindVertexArray(gl._indexVA);
 
     // setup uniforms and textures
-    for (const name in prog.setters) {
-        prog.setters[name](uniforms[name]);
-    }
-    
+    Object.entries(prog.setters).forEach(([name, f])=>f(uniforms[name]));
     // draw
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, vertN, instN);
     
@@ -699,6 +776,8 @@ function SwissGL(canvas_gl) {
         canvas_gl.getContext('webgl2', {alpha:false, antialias:true}) : canvas_gl;
     gl.getExtension("EXT_color_buffer_float");
     gl.getExtension("OES_texture_float_linear");
+    gl.pixelStorei(gl.PACK_ALIGNMENT, 1);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
     ensureVertexArray(gl, 1024);
     const glsl = (params, target)=>drawQuads(glsl, params, target);
     glsl.hook = wrapSwissGL;
